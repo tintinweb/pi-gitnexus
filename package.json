@@ -19,11 +19,13 @@
     "@sinclair/typebox": "latest"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "@types/node": "^20.0.0"
+    "@types/node": "^25.3.0",
+    "typescript": "^5.0.0"
   },
   "pi": {
-    "extensions": ["./src/index.ts"],
+    "extensions": [
+      "./src/index.ts"
+    ],
     "image": "https://github.com/tintinweb/pi-gitnexus/raw/master/media/screenshot.png"
   }
 }
