@@ -2,18 +2,20 @@
 
 [GitNexus](https://github.com/abhigyanpatwari/GitNexus) knowledge graph integration for [pi](https://github.com/mariozechner/pi). Enriches every search, file read, and symbol lookup with call chains, callers/callees, and execution flows — automatically.
 
+<img height="298" alt="pi-gitnexus screenshot" src="https://github.com/tintinweb/pi-gitnexus/raw/master/media/screenshot.png" />
+
 ## What it does
 
 When the agent reads a file or runs a search (grep, find, bash), the extension appends graph context from the knowledge graph inline with the results. The agent sees both together and can follow call chains without additional queries.
 
 ```
-Agent reads SizeMetaVault.sol
+Agent reads auth/session.ts
   → file content returned normally
-  → gitnexus augment appends: callers of the contract, what it extends, related tests
+  → [GitNexus] appended: callers of the module, what it imports, related tests
 
-Agent runs grep("_withdrawFromStrategies")
+Agent runs grep("validateUser")
   → grep results returned normally
-  → gitnexus augment appends: Called by: _withdraw / Calls: maxWithdraw, withdraw, asset
+  → [GitNexus] appended: Called by: login, signup / Calls: checkPermissions, getUser
   → filenames in the grep output are also looked up in parallel
 ```
 
@@ -83,6 +85,10 @@ The following tools are registered in pi and always available to the agent:
 **Auto-augment toggle** — `/gitnexus off` disables the hook without affecting tools. Useful when the graph output is noisy for a particular task. Resets to enabled on session switch.
 
 **Analyze guard** — auto-augment is paused during `/gitnexus analyze` to avoid injecting stale or partially-built index results.
+
+## License note
+
+This extension (pi-gitnexus) is MIT licensed. [GitNexus](https://github.com/abhigyanpatwari/GitNexus) itself is published under the [PolyForm Noncommercial License](https://polyformproject.org/licenses/noncommercial/1.0.0/) — commercial use requires a separate agreement with its author. Install and use gitnexus in accordance with its license terms.
 
 ## Notes
 

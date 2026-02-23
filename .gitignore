@@ -24,6 +24,9 @@ Thumbs.db
 *.swo
 *~
 
+# Large media files (host externally or use Git LFS)
+media/*.mp4
+
 # Temporary files
 *.tmp
 .temp/
