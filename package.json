@@ -1,0 +1,28 @@
+{
+  "name": "pi-gitnexus",
+  "version": "0.2.0",
+  "description": "GitNexus knowledge graph integration for pi — enriches searches with call chains, execution flows, and blast radius",
+  "author": "tintinweb",
+  "license": "MIT",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-extension",
+    "gitnexus",
+    "knowledge-graph",
+    "code-intelligence",
+    "call-graph",
+    "agent"
+  ],
+  "dependencies": {
+    "@mariozechner/pi-coding-agent": "latest",
+    "@sinclair/typebox": "latest"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  },
+  "pi": {
+    "extensions": ["./src/index.ts"]
+  }
+}
