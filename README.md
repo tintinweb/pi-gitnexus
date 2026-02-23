@@ -101,6 +101,7 @@ This extension (pi-gitnexus) is MIT licensed. [GitNexus](https://github.com/abhi
 
 ## Notes
 
+- The extension never runs `gitnexus analyze` automatically — indexing is always user-initiated via `/gitnexus analyze`.
 - The index is a static snapshot. Re-run `/gitnexus analyze` after significant code changes. The agent will suggest this when the index appears stale.
 - `gitnexus_detect_changes` is a lightweight alternative: pass `git diff HEAD` output to see affected flows without a full reindex.
 - `gitnexus_cypher` and `gitnexus_rename` are intentionally not exposed (raw graph access and automated multi-file rename).
