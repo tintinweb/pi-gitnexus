@@ -1,6 +1,6 @@
 {
   "name": "pi-gitnexus",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "GitNexus knowledge graph integration for pi — enriches searches with call chains, execution flows, and blast radius",
   "author": "tintinweb",
   "license": "MIT",
