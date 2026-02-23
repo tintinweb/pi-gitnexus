@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0
+
+- **TypeScript compatibility** — `tool_result` handler now uses inferred event types from the API overload instead of a manual annotation, fixing a compile error with `@mariozechner/pi-coding-agent` 0.54.x.
+- **Dependency updates** — `@mariozechner/pi-coding-agent` to 0.54.2, `@types/node` to 25.x.
+
 ## 0.2.0
 
 ### Features
