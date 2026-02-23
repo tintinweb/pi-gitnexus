@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1
+
+- **Package metadata** — added `repository`, `homepage`, and `bugs` fields.
+
 ## 0.3.0
 
 - **Configurable command** — the gitnexus binary invocation is now configurable. Default is `gitnexus` on PATH. Use `/gitnexus config` to set a custom command (e.g. `npx gitnexus@latest`) via an input dialog; the value is persisted to `~/.pi/pi-gitnexus.json`. The `--gitnexus-cmd` CLI flag overrides the saved config for one-off runs. Nothing is ever installed automatically.

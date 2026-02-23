@@ -1,9 +1,17 @@
 {
   "name": "pi-gitnexus",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "GitNexus knowledge graph integration for pi — enriches searches with call chains, execution flows, and blast radius",
   "author": "tintinweb",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tintinweb/pi-gitnexus.git"
+  },
+  "homepage": "https://github.com/tintinweb/pi-gitnexus#readme",
+  "bugs": {
+    "url": "https://github.com/tintinweb/pi-gitnexus/issues"
+  },
   "keywords": [
     "pi-package",
     "pi",
@@ -20,7 +28,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.3.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.9.3"
   },
   "pi": {
     "extensions": [
