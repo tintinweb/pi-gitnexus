@@ -7,6 +7,7 @@
 
 https://github.com/user-attachments/assets/49e61667-f508-4d22-abad-05241e414664
 
+> The graph view in the demo is from [gitnexus-web](https://github.com/abhigyanpatwari/GitNexus) and is not part of this extension.
 
 ## What it does
 
