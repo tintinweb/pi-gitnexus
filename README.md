@@ -4,6 +4,10 @@
 
 <img height="298" alt="pi-gitnexus screenshot" src="https://github.com/tintinweb/pi-gitnexus/raw/master/media/screenshot.png" />
 
+
+https://github.com/user-attachments/assets/49e61667-f508-4d22-abad-05241e414664
+
+
 ## What it does
 
 When the agent reads a file or runs a search (grep, find, bash), the extension appends graph context from the knowledge graph inline with the results. The agent sees both together and can follow call chains without additional queries.
