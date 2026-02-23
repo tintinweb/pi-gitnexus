@@ -8,7 +8,7 @@ tsconfig.json
 PLAN.md
 SUMMARY.md
 plan/
-media/
+media/*.mp4
 
 # Build artifacts
 *.log
