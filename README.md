@@ -28,15 +28,18 @@ Five tools are also registered directly in pi — the agent can use them explici
 
 ## Requirements
 
-- [gitnexus](https://github.com/abhigyanpatwari/GitNexus) installed globally: `npm i -g gitnexus`
+- [gitnexus](https://github.com/abhigyanpatwari/GitNexus) available as `gitnexus` on PATH (e.g. `npm i -g gitnexus`)
 - A GitNexus index in your project: run `/gitnexus analyze`
+
+The extension never installs anything automatically. It assumes `gitnexus` is on PATH. If your setup differs, use `/gitnexus config` to set a custom command (e.g. `npx gitnexus@latest`).
 
 ## Getting started
 
-1. Install gitnexus: `npm i -g gitnexus`
-2. Open your project in pi
-3. Run `/gitnexus analyze` to build the knowledge graph
-4. Done — file reads and searches are now enriched automatically
+1. Install the extension: `pi install npm:pi-gitnexus`
+2. Install gitnexus: `npm i -g gitnexus`
+3. Open your project in pi
+4. Run `/gitnexus analyze` to build the knowledge graph
+5. Done — file reads and searches are now enriched automatically
 
 ## What triggers augmentation
 
@@ -59,6 +62,7 @@ Each tool result augments up to 3 patterns in parallel. Patterns already augment
 | `/gitnexus` | Show index status and session enrichment count |
 | `/gitnexus analyze` | Build or rebuild the knowledge graph |
 | `/gitnexus on` / `/gitnexus off` | Enable/disable auto-augment (tools unaffected) |
+| `/gitnexus config` | Set the gitnexus command (saved to `~/.pi/pi-gitnexus.json`) |
 | `/gitnexus <pattern>` | Manual graph lookup for a symbol or pattern |
 | `/gitnexus query <text>` | Search execution flows |
 | `/gitnexus context <name>` | 360° view of a symbol: callers, callees, processes |

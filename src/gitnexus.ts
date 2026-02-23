@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
-import { resolve, sep, basename, extname } from 'path';
-import { existsSync } from 'fs';
+import { resolve, sep, basename, extname, join } from 'path';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { homedir } from 'os';
 
 /** Max output chars returned to the LLM. Prevents context flooding. JS strings are UTF-16 chars, not bytes. */
 export const MAX_OUTPUT_CHARS = 8 * 1024;
@@ -12,6 +13,35 @@ export const MAX_OUTPUT_CHARS = 8 * 1024;
  */
 export let spawnEnv: NodeJS.ProcessEnv = process.env;
 export function updateSpawnEnv(env: NodeJS.ProcessEnv): void { spawnEnv = env; }
+
+/**
+ * Resolved command prefix for invoking gitnexus.
+ * Set to ['gitnexus'] when the binary is on PATH, otherwise ['npx', '-y', 'gitnexus@latest'].
+ * Updated by setGitnexusCmd() during session_start probe.
+ */
+export let gitnexusCmd: string[] = ['gitnexus'];
+export function setGitnexusCmd(cmd: string[]): void { gitnexusCmd = cmd; }
+
+const CONFIG_PATH = join(homedir(), '.pi', 'pi-gitnexus.json');
+
+interface GitNexusConfig {
+  cmd?: string;
+}
+
+export function loadSavedConfig(): GitNexusConfig {
+  try {
+    return JSON.parse(readFileSync(CONFIG_PATH, 'utf8')) as GitNexusConfig;
+  } catch {
+    return {};
+  }
+}
+
+export function saveConfig(config: GitNexusConfig): void {
+  try {
+    mkdirSync(join(homedir(), '.pi'), { recursive: true });
+    writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2) + '\n');
+  } catch { /* ignore write errors */ }
+}
 
 /** Augment subprocess timeout in ms. Applied via setTimeout + proc.kill('SIGTERM') — spawn has no built-in timeout. */
 const AUGMENT_TIMEOUT = 8_000;
@@ -174,7 +204,8 @@ export async function runAugment(pattern: string, cwd: string): Promise<string> 
     let output = '';
     let done = false;
 
-    const proc = spawn('gitnexus', ['augment', pattern], {
+    const [bin, ...baseArgs] = gitnexusCmd;
+    const proc = spawn(bin, [...baseArgs, 'augment', pattern], {
       cwd,
       stdio: ['ignore', 'ignore', 'pipe'],
       env: spawnEnv,

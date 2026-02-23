@@ -1,5 +1,5 @@
 import { spawn, ChildProcess } from 'child_process';
-import { MAX_OUTPUT_CHARS, spawnEnv } from './gitnexus';
+import { MAX_OUTPUT_CHARS, spawnEnv, gitnexusCmd } from './gitnexus';
 
 interface JsonRpcResponse {
   jsonrpc: '2.0';
@@ -45,7 +45,8 @@ class GitNexusMcpClient {
     if (this.startPromise) return this.startPromise;
 
     this.startPromise = new Promise<void>((resolve_, reject) => {
-      const proc = spawn('gitnexus', ['mcp'], {
+      const [bin, ...baseArgs] = gitnexusCmd;
+      const proc = spawn(bin, [...baseArgs, 'mcp'], {
         cwd,
         stdio: ['pipe', 'pipe', 'ignore'],
         env: spawnEnv,

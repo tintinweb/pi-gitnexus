@@ -2,6 +2,7 @@
 
 ## 0.3.0
 
+- **Configurable command** — the gitnexus binary invocation is now configurable. Default is `gitnexus` on PATH. Use `/gitnexus config` to set a custom command (e.g. `npx gitnexus@latest`) via an input dialog; the value is persisted to `~/.pi/pi-gitnexus.json`. The `--gitnexus-cmd` CLI flag overrides the saved config for one-off runs. Nothing is ever installed automatically.
 - **TypeScript compatibility** — `tool_result` handler now uses inferred event types from the API overload instead of a manual annotation, fixing a compile error with `@mariozechner/pi-coding-agent` 0.54.x.
 - **Dependency updates** — `@mariozechner/pi-coding-agent` to 0.54.2, `@types/node` to 25.x.
 

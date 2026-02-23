@@ -1,6 +1,6 @@
 import { spawn } from 'child_process';
 import type { ExtensionAPI, ExtensionContext } from '@mariozechner/pi-coding-agent';
-import { findGitNexusIndex, clearIndexCache, extractPattern, extractFilePatternsFromContent, runAugment, spawnEnv, updateSpawnEnv } from './gitnexus';
+import { findGitNexusIndex, clearIndexCache, extractPattern, extractFilePatternsFromContent, runAugment, spawnEnv, updateSpawnEnv, gitnexusCmd, setGitnexusCmd, loadSavedConfig, saveConfig } from './gitnexus';
 import { mcpClient } from './mcp-client';
 import { registerTools } from './tools';
 
@@ -19,12 +19,18 @@ async function resolveShellPath(): Promise<void> {
   updateSpawnEnv({ ...process.env, PATH: path });
 }
 
-function probeGitNexusBinary(): Promise<boolean> {
+function trySpawn(bin: string, args: string[]): Promise<boolean> {
   return new Promise((resolve_) => {
-    const proc = spawn('gitnexus', ['--version'], { stdio: 'ignore', env: spawnEnv });
+    const proc = spawn(bin, args, { stdio: 'ignore', env: spawnEnv });
     proc.on('close', (code: number | null) => resolve_(code === 0));
     proc.on('error', () => resolve_(false));
   });
+}
+
+/** Probe for gitnexus using the configured command. */
+async function probeGitNexusBinary(): Promise<boolean> {
+  const [bin, ...args] = gitnexusCmd;
+  return trySpawn(bin, [...args, '--version']);
 }
 
 /** Cached from session_start/session_switch — avoids re-probing on every /gitnexus status. */
@@ -50,6 +56,12 @@ const augmentedCache = new Set<string>();
 
 export default function(pi: ExtensionAPI) {
   registerTools(pi);
+
+  pi.registerFlag('gitnexus-cmd', {
+    type: 'string',
+    default: 'gitnexus',
+    description: 'Command used to invoke gitnexus, e.g. "npx gitnexus@latest"',
+  });
 
   // Append a one-liner so the agent understands graph context in search results.
   pi.on('before_agent_start', async (event: { systemPrompt?: string }, ctx: ExtensionContext) => {
@@ -111,6 +123,12 @@ export default function(pi: ExtensionAPI) {
     sessionCwd = ctx.cwd;
     await resolveShellPath();
 
+    // Resolve command: default → saved config → CLI flag (highest precedence)
+    const saved = loadSavedConfig().cmd;
+    const flag = pi.getFlag('gitnexus-cmd') as string | undefined;
+    const cmdStr = flag ?? saved ?? 'gitnexus';
+    setGitnexusCmd(cmdStr.trim().split(/\s+/));
+
     binaryAvailable = await probeGitNexusBinary();
     if (!findGitNexusIndex(ctx.cwd)) return;
 
@@ -149,7 +167,8 @@ export default function(pi: ExtensionAPI) {
         }
         const out = await new Promise<string>((resolve_) => {
           let stdout = '';
-          const proc = spawn('gitnexus', ['status'], {
+          const [bin, ...baseArgs] = gitnexusCmd;
+          const proc = spawn(bin, [...baseArgs, 'status'], {
             cwd: ctx.cwd,
             stdio: ['ignore', 'pipe', 'ignore'],
             env: spawnEnv,
@@ -174,6 +193,7 @@ export default function(pi: ExtensionAPI) {
           '  /gitnexus             — show status\n' +
           '  /gitnexus analyze     — index the codebase\n' +
           '  /gitnexus on|off      — enable/disable auto-augment on searches\n' +
+          '  /gitnexus config      — set the gitnexus command (saved to ~/.pi/pi-gitnexus.json)\n' +
           '  /gitnexus <pattern>   — manual graph lookup\n' +
           '  /gitnexus query <q>   — search execution flows\n' +
           '  /gitnexus context <n> — callers/callees of a symbol\n' +
@@ -194,6 +214,19 @@ export default function(pi: ExtensionAPI) {
         return;
       }
 
+      // /gitnexus config
+      if (sub === 'config') {
+        const current = gitnexusCmd.join(' ');
+        const input = await ctx.ui.input('gitnexus command', current);
+        if (input === undefined) return; // cancelled
+        const trimmed = input.trim();
+        if (!trimmed) return;
+        setGitnexusCmd(trimmed.split(/\s+/));
+        saveConfig({ cmd: trimmed });
+        ctx.ui.notify(`GitNexus command set to: ${trimmed}`, 'info');
+        return;
+      }
+
       // /gitnexus analyze
       if (sub === 'analyze') {
         if (!binaryAvailable) {
@@ -203,7 +236,8 @@ export default function(pi: ExtensionAPI) {
         augmentEnabled = false;
         ctx.ui.notify('GitNexus: analyzing codebase, this may take a while…', 'info');
         const exitCode = await new Promise<number | null>((resolve_) => {
-          const proc = spawn('gitnexus', ['analyze'], {
+          const [bin, ...baseArgs] = gitnexusCmd;
+          const proc = spawn(bin, [...baseArgs, 'analyze'], {
             cwd: ctx.cwd,
             stdio: 'ignore',
             env: spawnEnv,
