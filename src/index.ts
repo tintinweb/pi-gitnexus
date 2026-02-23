@@ -67,7 +67,7 @@ export default function(pi: ExtensionAPI) {
 
   // Core hook: mirrors the Claude Code PreToolUse integration.
   // Intercepts grep/find/bash/read results, appends knowledge graph context.
-  pi.on('tool_result', async (event: { toolName: string; input: Record<string, unknown>; content: { type: string; text?: string }[] }, ctx: ExtensionContext) => {
+  pi.on('tool_result', async (event, ctx) => {
     if (!augmentEnabled) return;
     if (!SEARCH_TOOLS.has(event.toolName)) return;
     hookFires++;
@@ -96,7 +96,7 @@ export default function(pi: ExtensionAPI) {
     return {
       content: [
         ...event.content,
-        { type: 'text', text: `\n\n[GitNexus]\n${combined}` },
+        { type: 'text' as const, text: `\n\n[GitNexus]\n${combined}` },
       ],
     };
   });
