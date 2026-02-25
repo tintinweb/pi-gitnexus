@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0
+
+- **`read_many` augmentation** — batch file reads now trigger per-file labeled graph context. When the agent reads multiple files at once via `read_many`, each code file in the batch (up to 5) is looked up in the knowledge graph and returned as a separate `### filename` section, so the agent always knows which context belongs to which file.
+
 ## 0.3.1
 
 - **Package metadata** — added `repository`, `homepage`, and `bugs` fields.

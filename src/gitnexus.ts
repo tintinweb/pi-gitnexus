@@ -158,6 +158,48 @@ export function extractPattern(toolName: string, input: Record<string, unknown>)
 }
 
 /**
+ * Extract { path, pattern } pairs from a read_many tool input.
+ * read_many input is { files: Array<{ path: string, ... }> }.
+ * Falls back to scanning content for @path lines if input lacks a files array.
+ * Returns code files only, deduplicated by basename pattern.
+ */
+export function extractFilesFromReadMany(
+  input: Record<string, unknown>,
+  content: { type: string; text?: string }[],
+): Array<{ path: string; pattern: string }> {
+  const seen = new Set<string>();
+  const results: Array<{ path: string; pattern: string }> = [];
+
+  const add = (filePath: string) => {
+    const ext = extname(filePath);
+    if (!CODE_EXTENSIONS.has(ext)) return;
+    const pattern = basename(filePath).replace(/\.\w+$/, '');
+    if (pattern.length < 3 || seen.has(pattern)) return;
+    seen.add(pattern);
+    results.push({ path: filePath, pattern });
+  };
+
+  // Primary: extract from structured input
+  const files = Array.isArray(input.files) ? input.files : [];
+  for (const f of files) {
+    if (typeof f === 'object' && f !== null && typeof (f as Record<string, unknown>).path === 'string') {
+      add((f as Record<string, unknown>).path as string);
+    }
+  }
+
+  // Fallback: parse @path lines from content (if input was empty/unknown)
+  if (results.length === 0) {
+    const text = content.map(c => c.text ?? '').join('\n');
+    for (const line of text.split('\n')) {
+      const m = line.match(/^@(.+)$/);
+      if (m) add(m[1].trim());
+    }
+  }
+
+  return results;
+}
+
+/**
  * Extract up to `limit` unique file basenames (without extension) from
  * grep-style output lines of the form "path/to/file.ext:lineno:content".
  * Used to augment secondary context from search results.

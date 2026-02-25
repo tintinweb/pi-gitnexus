@@ -11,7 +11,7 @@ https://github.com/user-attachments/assets/49e61667-f508-4d22-abad-05241e414664
 
 ## What it does
 
-When the agent reads a file or runs a search (grep, find, bash), the extension appends graph context from the knowledge graph inline with the results. The agent sees both together and can follow call chains without additional queries.
+When the agent reads a file or runs a search (grep, find, bash, read_many), the extension appends graph context from the knowledge graph inline with the results. The agent sees both together and can follow call chains without additional queries.
 
 ```
 Agent reads auth/session.ts
@@ -22,6 +22,14 @@ Agent runs grep("validateUser")
   → grep results returned normally
   → [GitNexus] appended: Called by: login, signup / Calls: checkPermissions, getUser
   → filenames in the grep output are also looked up in parallel
+
+Agent calls read_many([api.ts, db.ts, router.ts])
+  → file contents returned normally
+  → [GitNexus] appended with per-file labeled sections:
+      ### api.ts
+      <call graph context for api>
+      ### db.ts
+      <call graph context for db>
 ```
 
 Five tools are also registered directly in pi — the agent can use them explicitly for deeper analysis without any setup.
@@ -51,9 +59,10 @@ The extension never installs anything automatically. It assumes `gitnexus` is on
 | `bash` with find | Value of `-name`/`-iname` |
 | `find` | Glob pattern basename |
 | `read` | Filename of the file being read (code files only) |
-| Any grep/bash result | Filenames extracted from result lines (`path/file.sol:line:`) |
+| `read_many` | Each code file in the batch (up to 5), labeled per-file in output |
+| Any grep/bash result | Filenames extracted from result lines (`path/file.ts:line:`) |
 
-Each tool result augments up to 3 patterns in parallel. Patterns already augmented this session are skipped.
+Each tool result augments up to 3 patterns in parallel (up to 5 for `read_many`). Patterns already augmented this session are skipped.
 
 ## Commands
 
@@ -83,7 +92,7 @@ The following tools are registered in pi and always available to the agent:
 
 ## How it works
 
-**Auto-augment hook** — fires after every grep/find/bash/read tool result. Extracts up to 3 patterns (primary from input, secondary filenames from result content) and calls `gitnexus augment` for each in parallel. Results are merged into a single `[GitNexus]` block appended to the tool result, so the agent sees it inline.
+**Auto-augment hook** — fires after every grep/find/bash/read/read_many tool result. For standard tools, extracts up to 3 patterns (primary from input, secondary filenames from result content) and calls `gitnexus augment` for each in parallel. Results are merged into a single `[GitNexus: <pattern>]` block appended to the tool result. For `read_many`, each file in the batch gets its own labeled section so the agent knows exactly which context belongs to which file.
 
 **Session dedup cache** — each symbol or filename is augmented at most once per session. Prevents redundant lookups when the agent repeatedly searches for the same thing.
 

@@ -1,10 +1,10 @@
 import { spawn } from 'child_process';
 import type { ExtensionAPI, ExtensionContext } from '@mariozechner/pi-coding-agent';
-import { findGitNexusIndex, clearIndexCache, extractPattern, extractFilePatternsFromContent, runAugment, spawnEnv, updateSpawnEnv, gitnexusCmd, setGitnexusCmd, loadSavedConfig, saveConfig } from './gitnexus';
+import { findGitNexusIndex, clearIndexCache, extractPattern, extractFilePatternsFromContent, extractFilesFromReadMany, runAugment, spawnEnv, updateSpawnEnv, gitnexusCmd, setGitnexusCmd, loadSavedConfig, saveConfig } from './gitnexus';
 import { mcpClient } from './mcp-client';
 import { registerTools } from './tools';
 
-const SEARCH_TOOLS = new Set(['grep', 'find', 'bash', 'read']);
+const SEARCH_TOOLS = new Set(['grep', 'find', 'bash', 'read', 'read_many']);
 
 /** Resolve PATH from a login shell so nvm/fnm/volta binaries are visible. */
 async function resolveShellPath(): Promise<void> {
@@ -86,6 +86,30 @@ export default function(pi: ExtensionAPI) {
     const cwd = sessionCwd || ctx.cwd;
     if (!findGitNexusIndex(cwd)) return;
 
+    // read_many: per-file labeled context so the agent knows which context belongs to which file.
+    if (event.toolName === 'read_many') {
+      const files = extractFilesFromReadMany(event.input, event.content);
+      const fresh = files.filter(f => !augmentedCache.has(f.pattern)).slice(0, 5);
+      if (fresh.length === 0) return;
+      fresh.forEach(f => augmentedCache.add(f.pattern));
+      const results = await Promise.all(fresh.map(f => runAugment(f.pattern, cwd).then(out => ({ f, out }))));
+      const sections = results.filter(r => r.out);
+      if (sections.length === 0) return;
+      augmentHits++;
+      const label = sections.length === 1
+        ? `[GitNexus: ${sections[0].f.path.split('/').pop()}]`
+        : '[GitNexus]';
+      const body = sections.length === 1
+        ? sections[0].out
+        : sections.map(({ f, out }) => `### ${f.path.split('/').pop()}\n${out}`).join('\n\n');
+      return {
+        content: [
+          ...event.content,
+          { type: 'text' as const, text: `\n\n${label}\n${body}` },
+        ],
+      };
+    }
+
     // Collect patterns: primary from input, secondary filenames from result content.
     const primary = extractPattern(event.toolName, event.input);
     const secondary = (event.toolName === 'grep' || event.toolName === 'bash')
@@ -108,7 +132,7 @@ export default function(pi: ExtensionAPI) {
     return {
       content: [
         ...event.content,
-        { type: 'text' as const, text: `\n\n[GitNexus]\n${combined}` },
+        { type: 'text' as const, text: `\n\n[GitNexus: ${toRun.join(', ')}]\n${combined}` },
       ],
     };
   });
