@@ -1,6 +1,6 @@
 import { Type } from '@sinclair/typebox';
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
-import { findGitNexusIndex, safeResolvePath } from './gitnexus';
+import { findGitNexusIndex, safeResolvePath, getSelectedRepo, getRepoPathFromMeta } from './gitnexus';
 import { mcpClient } from './mcp-client';
 
 function text(msg: string) {
@@ -47,7 +47,9 @@ export function registerTools(pi: ExtensionAPI): void {
     }),
     execute: async (_id, params, _signal, _onUpdate, ctx) => {
       if (!findGitNexusIndex(ctx.cwd)) return text(NO_INDEX);
-      const out = await mcpClient.callTool('query', params as Record<string, unknown>, ctx.cwd);
+      const repo = getSelectedRepo() || getRepoPathFromMeta(ctx.cwd) || undefined;
+      const args = repo ? { ...(params as Record<string, unknown>), repo } : params as Record<string, unknown>;
+      const out = await mcpClient.callTool('query', args, ctx.cwd);
       return text(out || 'No results.');
     },
   });
@@ -72,6 +74,10 @@ export function registerTools(pi: ExtensionAPI): void {
         if (!safe) return text('Invalid file path.');
         args = { ...params, file: safe };
       }
+      const repo = getSelectedRepo() || getRepoPathFromMeta(ctx.cwd) || undefined;
+      if (repo) {
+        args = { ...args, repo };
+      }
       const out = await mcpClient.callTool('context', args, ctx.cwd);
       return text(out || 'No results.');
     },
@@ -92,7 +98,9 @@ export function registerTools(pi: ExtensionAPI): void {
     }),
     execute: async (_id, params, _signal, _onUpdate, ctx) => {
       if (!findGitNexusIndex(ctx.cwd)) return text(NO_INDEX);
-      const out = await mcpClient.callTool('impact', params as Record<string, unknown>, ctx.cwd);
+      const repo = getSelectedRepo() || getRepoPathFromMeta(ctx.cwd) || undefined;
+      const args = repo ? { ...(params as Record<string, unknown>), repo } : params as Record<string, unknown>;
+      const out = await mcpClient.callTool('impact', args, ctx.cwd);
       return text(out || 'No results.');
     },
   });
@@ -106,7 +114,9 @@ export function registerTools(pi: ExtensionAPI): void {
     }),
     execute: async (_id, params, _signal, _onUpdate, ctx) => {
       if (!findGitNexusIndex(ctx.cwd)) return text(NO_INDEX);
-      const out = await mcpClient.callTool('detect_changes', params as Record<string, unknown>, ctx.cwd);
+      const repo = getSelectedRepo() || getRepoPathFromMeta(ctx.cwd) || undefined;
+      const args = repo ? { ...(params as Record<string, unknown>), repo } : params as Record<string, unknown>;
+      const out = await mcpClient.callTool('detect_changes', args, ctx.cwd);
       return text(out || 'No affected flows detected.');
     },
   });

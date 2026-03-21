@@ -66,9 +66,70 @@ export function findGitNexusIndex(cwd: string): boolean {
   return false;
 }
 
+/** Per-session selected repo path. Empty = use cwd default. */
+let selectedRepoPath = '';
+export function setSelectedRepo(repo: string): void { selectedRepoPath = repo; }
+export function getSelectedRepo(): string { return selectedRepoPath; }
+export function clearSelectedRepo(): void { selectedRepoPath = ''; }
+
 /** Clear the index cache. Call on session_switch when cwd may have changed. */
 export function clearIndexCache(): void {
   indexCache.clear();
+  clearSelectedRepo();
+}
+
+/** GitNexus meta.json structure */
+interface GitNexusMeta {
+  repoPath?: string;
+  lastCommit?: string;
+  indexedAt?: string;
+  stats?: {
+    files?: number;
+    nodes?: number;
+    edges?: number;
+    communities?: number;
+    processes?: number;
+    embeddings?: number;
+  };
+}
+
+/** Read .gitnexus/meta.json from the given directory */
+export function readGitNexusMeta(cwd: string): GitNexusMeta | null {
+  const metaPath = resolve(cwd, '.gitnexus', 'meta.json');
+  if (!existsSync(metaPath)) return null;
+  try {
+    return JSON.parse(readFileSync(metaPath, 'utf8')) as GitNexusMeta;
+  } catch {
+    return null;
+  }
+}
+
+/** Get the repo path from meta.json, or null if not found */
+export function getRepoPathFromMeta(cwd: string): string | null {
+  const meta = readGitNexusMeta(cwd);
+  return meta?.repoPath ?? null;
+}
+
+/**
+ * Find all .gitnexus directories within 5 ancestor levels.
+ * Returns array of { cwd, repoPath } for each found index.
+ */
+export function findIndexedRepos(cwd: string): Array<{ cwd: string; repoPath: string }> {
+  const results: Array<{ cwd: string; repoPath: string }> = [];
+  let dir = cwd;
+  for (let i = 0; i < 5; i++) {
+    const gitnexusDir = resolve(dir, '.gitnexus');
+    if (existsSync(gitnexusDir)) {
+      const meta = readGitNexusMeta(dir);
+      if (meta?.repoPath) {
+        results.push({ cwd: dir, repoPath: meta.repoPath });
+      }
+    }
+    const parent = resolve(dir, '..');
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return results;
 }
 
 /** File extensions worth augmenting when the agent reads a file. */

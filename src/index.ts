@@ -1,6 +1,6 @@
 import { spawn } from 'child_process';
 import type { ExtensionAPI, ExtensionContext } from '@mariozechner/pi-coding-agent';
-import { findGitNexusIndex, clearIndexCache, extractPattern, extractFilePatternsFromContent, extractFilesFromReadMany, runAugment, spawnEnv, updateSpawnEnv, gitnexusCmd, setGitnexusCmd, loadSavedConfig, saveConfig } from './gitnexus';
+import { findGitNexusIndex, clearIndexCache, extractPattern, extractFilePatternsFromContent, extractFilesFromReadMany, runAugment, spawnEnv, updateSpawnEnv, gitnexusCmd, setGitnexusCmd, loadSavedConfig, saveConfig, setSelectedRepo, getSelectedRepo, getRepoPathFromMeta, findIndexedRepos } from './gitnexus';
 import { mcpClient } from './mcp-client';
 import { registerTools } from './tools';
 
@@ -73,6 +73,7 @@ export default function(pi: ExtensionAPI) {
         '\n\n[GitNexus active] Graph context will appear after search results. ' +
         'Use gitnexus_query, gitnexus_context, gitnexus_impact, gitnexus_detect_changes, ' +
         'gitnexus_list_repos for deeper analysis of call chains and execution flows. ' +
+        'Use /gitnexus repo to switch repositories. ' +
         'If the index is stale after code changes, run /gitnexus analyze to rebuild it.',
     };
   });
@@ -218,6 +219,7 @@ export default function(pi: ExtensionAPI) {
           '  /gitnexus analyze     — index the codebase\n' +
           '  /gitnexus on|off      — enable/disable auto-augment on searches\n' +
           '  /gitnexus config      — set the gitnexus command (saved to ~/.pi/pi-gitnexus.json)\n' +
+          '  /gitnexus repo [path|list] — show/set repo context or list indexed repos\n' +
           '  /gitnexus <pattern>   — manual graph lookup\n' +
           '  /gitnexus query <q>   — search execution flows\n' +
           '  /gitnexus context <n> — callers/callees of a symbol\n' +
@@ -280,10 +282,45 @@ export default function(pi: ExtensionAPI) {
         return;
       }
 
+      // /gitnexus repo [path|list]
+      if (sub === 'repo') {
+        // Show current repo
+        if (!rest) {
+          const selected = getSelectedRepo();
+          if (selected) {
+            ctx.ui.notify(`Repo: ${selected} (manually set)`, 'info');
+          } else {
+            const metaRepo = getRepoPathFromMeta(ctx.cwd);
+            ctx.ui.notify(`Repo: ${metaRepo ?? ctx.cwd} (from .gitnexus/meta.json)`, 'info');
+          }
+          return;
+        }
+        // List all indexed repos in ancestor paths
+        if (rest === 'list') {
+          const repos = findIndexedRepos(ctx.cwd);
+          if (repos.length === 0) {
+            ctx.ui.notify('No indexed repositories found in ancestor paths.', 'info');
+            return;
+          }
+          const current = getSelectedRepo() || getRepoPathFromMeta(ctx.cwd) || ctx.cwd;
+          const lines = repos.map(r =>
+            r.repoPath === current ? `• ${r.repoPath} (active)` : `  ${r.repoPath}`
+          );
+          ctx.ui.notify('Indexed repositories:\n' + lines.join('\n'), 'info');
+          return;
+        }
+        // Set repo by path
+        setSelectedRepo(rest.trim());
+        ctx.ui.notify(`GitNexus repo set to: ${rest}`, 'info');
+        return;
+      }
+
       // /gitnexus query <text>
       if (sub === 'query') {
         if (!rest) { ctx.ui.notify('Usage: /gitnexus query <text>', 'info'); return; }
-        const out = await mcpClient.callTool('query', { query: rest }, ctx.cwd);
+        const repo = getSelectedRepo() || getRepoPathFromMeta(ctx.cwd) || undefined;
+        const params = repo ? { query: rest, repo } : { query: rest };
+        const out = await mcpClient.callTool('query', params, ctx.cwd);
         if (out) pi.sendUserMessage(out, { deliverAs: 'followUp' });
         else ctx.ui.notify('No results.', 'info');
         return;
@@ -292,7 +329,9 @@ export default function(pi: ExtensionAPI) {
       // /gitnexus context <name>
       if (sub === 'context') {
         if (!rest) { ctx.ui.notify('Usage: /gitnexus context <name>', 'info'); return; }
-        const out = await mcpClient.callTool('context', { name: rest }, ctx.cwd);
+        const repo = getSelectedRepo() || getRepoPathFromMeta(ctx.cwd) || undefined;
+        const params = repo ? { name: rest, repo } : { name: rest };
+        const out = await mcpClient.callTool('context', params, ctx.cwd);
         if (out) pi.sendUserMessage(out, { deliverAs: 'followUp' });
         else ctx.ui.notify('No results.', 'info');
         return;
@@ -301,7 +340,9 @@ export default function(pi: ExtensionAPI) {
       // /gitnexus impact <name>
       if (sub === 'impact') {
         if (!rest) { ctx.ui.notify('Usage: /gitnexus impact <name>', 'info'); return; }
-        const out = await mcpClient.callTool('impact', { target: rest, direction: 'upstream' }, ctx.cwd);
+        const repo = getSelectedRepo() || getRepoPathFromMeta(ctx.cwd) || undefined;
+        const params = repo ? { target: rest, direction: 'upstream', repo } : { target: rest, direction: 'upstream' };
+        const out = await mcpClient.callTool('impact', params, ctx.cwd);
         if (out) pi.sendUserMessage(out, { deliverAs: 'followUp' });
         else ctx.ui.notify('No results.', 'info');
         return;
