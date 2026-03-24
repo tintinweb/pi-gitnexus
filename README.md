@@ -68,10 +68,11 @@ Each tool result augments up to 3 patterns in parallel (up to 5 for `read_many`)
 
 | Command | Description |
 |---|---|
-| `/gitnexus` | Show index status and session enrichment count |
+| `/gitnexus` | Open the main menu (Status, Settings) |
+| `/gitnexus status` | Show index status and session enrichment count |
 | `/gitnexus analyze` | Build or rebuild the knowledge graph |
 | `/gitnexus on` / `/gitnexus off` | Enable/disable auto-augment (tools unaffected) |
-| `/gitnexus config` | Set the gitnexus command (saved to `~/.pi/pi-gitnexus.json`) |
+| `/gitnexus settings` | Open the settings panel (auto-augment, timeout, limits, command) |
 | `/gitnexus <pattern>` | Manual graph lookup for a symbol or pattern |
 | `/gitnexus query <text>` | Search execution flows |
 | `/gitnexus context <name>` | 360° view of a symbol: callers, callees, processes |

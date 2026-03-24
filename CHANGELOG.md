@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1
+
+- **Settings menu cleanup** — removed duplicate auto-augment toggle. Previously, `/gitnexus settings` showed an auto-augment toggle in the top-level menu *and* inside the Settings panel. The top-level toggle is removed; auto-augment is now configured only in the Settings panel alongside timeout and limit options.
+- **`/gitnexus` opens main menu** — running `/gitnexus` with no arguments now opens an interactive menu with **Status** and **Settings** choices instead of printing status directly. `/gitnexus status` still works as a direct shortcut.
+
 ## 0.4.0
 
 - **`read_many` augmentation** — batch file reads now trigger per-file labeled graph context. When the agent reads multiple files at once via `read_many`, each code file in the batch (up to 5) is looked up in the knowledge graph and returned as a separate `### filename` section, so the agent always knows which context belongs to which file.

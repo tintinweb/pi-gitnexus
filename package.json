@@ -1,6 +1,6 @@
 {
   "name": "pi-gitnexus",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "GitNexus knowledge graph integration for pi — enriches searches with call chains, execution flows, and blast radius",
   "author": "tintinweb",
   "license": "MIT",
@@ -24,9 +24,12 @@
   ],
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run lint && npm run typecheck && npm run build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "check": "npm run typecheck && npm run test"
+    "check": "npm run typecheck && npm run test",
+    "lint": "biome check src/",
+    "lint:fix": "biome check --fix src/"
   },
   "peerDependencies": {
     "@mariozechner/pi-ai": "*",
@@ -34,11 +37,12 @@
     "@sinclair/typebox": "*"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.8",
     "@mariozechner/pi-ai": "latest",
     "@mariozechner/pi-coding-agent": "latest",
     "@sinclair/typebox": "latest",
     "@types/node": "^25.3.0",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.2",
     "vitest": "^2.1.9"
   },
   "pi": {

@@ -1,7 +1,7 @@
 import { spawn } from 'child_process';
-import { posix, resolve, relative, sep, basename, extname, join } from 'path';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
+import { basename, extname, join, posix, relative, resolve, sep } from 'path';
 
 /** Max output chars returned to the LLM. Prevents context flooding. JS strings are UTF-16 chars, not bytes. */
 export const MAX_OUTPUT_CHARS = 8 * 1024;
@@ -23,8 +23,12 @@ export function setGitnexusCmd(cmd: string[]): void { gitnexusCmd = cmd; }
 
 const CONFIG_PATH = join(homedir(), '.pi', 'pi-gitnexus.json');
 
-interface GitNexusConfig {
+export interface GitNexusConfig {
   cmd?: string;
+  autoAugment?: boolean;
+  augmentTimeout?: number;
+  maxAugmentsPerResult?: number;
+  maxSecondaryPatterns?: number;
 }
 
 export function loadSavedConfig(): GitNexusConfig {
@@ -57,8 +61,16 @@ export function expandUserPath(path: string): string {
     : path;
 }
 
-/** Augment subprocess timeout in ms. Applied via setTimeout + proc.kill('SIGTERM') — spawn has no built-in timeout. */
-const AUGMENT_TIMEOUT = 8_000;
+/** Default augment subprocess timeout in ms. Overridden by config.augmentTimeout. */
+const DEFAULT_AUGMENT_TIMEOUT = 8_000;
+
+/** Current augment timeout in ms. Updated by setAugmentTimeout(). */
+let augmentTimeout = DEFAULT_AUGMENT_TIMEOUT;
+
+export function setAugmentTimeout(seconds: number): void {
+  augmentTimeout = seconds * 1000;
+}
+
 
 /** Per-cwd cache: resolved repo root with .gitnexus, or null if none found. */
 const indexRootCache = new Map<string, string | null>();
@@ -290,7 +302,7 @@ export async function runAugment(pattern: string, cwd: string): Promise<string> 
         proc.kill('SIGTERM');
         resolve_('');
       }
-    }, AUGMENT_TIMEOUT);
+    }, augmentTimeout);
 
     proc.stderr.on('data', (chunk: { toString(): string }) => { output += chunk.toString(); });
 
