@@ -53,9 +53,9 @@ The extension never installs anything automatically. It assumes `gitnexus` is on
 
 | Tool | Pattern used |
 |---|---|
-| `grep` | Search pattern (regex metacharacters stripped) |
-| `bash` with grep/rg | First non-flag argument after `grep`/`rg` |
-| `bash` with cat/head/tail | Filename of the target file |
+| `grep` | Longest identifier literal extracted from the search pattern |
+| `bash` with grep/rg | First non-flag argument after `grep`/`rg` (quote-aware, pipe-safe) |
+| `bash` with cat/head/tail | Filename of the target file (quote-aware) |
 | `bash` with find | Value of `-name`/`-iname` |
 | `find` | Glob pattern basename |
 | `read` | Filename of the file being read (indexed code/docs files only) |
@@ -109,9 +109,9 @@ Skills are loaded on-demand — only the description is in context until the age
 
 ## How it works
 
-**Auto-augment hook** — fires after every grep/find/bash/read/read_many tool result. For standard tools, extracts up to 3 patterns (primary from input, secondary filenames from result content) and calls `gitnexus augment` for each in parallel. Results are merged into a single `[GitNexus: <pattern>]` block appended to the tool result. For `read_many`, each file in the batch gets its own labeled section so the agent knows exactly which context belongs to which file.
+**Auto-augment hook** — fires after every grep/find/bash/read/read_many tool result. Extracts up to 3 patterns (primary from input, secondary filenames from result content) and calls `gitnexus augment` for each in parallel. Regex patterns are parsed to extract the longest identifier-like literal; bash commands are tokenized with quote and pipe boundary awareness. Results are wrapped in `---` delimiters and appended to the tool result. For `read_many`, each file in the batch gets its own labeled section so the agent knows exactly which context belongs to which file.
 
-**Session dedup cache** — each symbol or filename is augmented at most once per session. Prevents redundant lookups when the agent repeatedly searches for the same thing.
+**Session dedup cache** — each symbol or filename is augmented at most once per session (case-insensitive). Patterns with results are cached in `augmentedCache`; patterns that returned empty are tracked in a separate `emptyCache` to prevent unbounded retries while still allowing retries after an index rebuild (both caches clear on session reset).
 
 **MCP client** — tools (list_repos, query, context, impact, detect_changes, rename, cypher) communicate with `gitnexus mcp` over a stdio pipe. The process is spawned lazily on the first tool call and kept alive for the session. No network socket, no port.
 

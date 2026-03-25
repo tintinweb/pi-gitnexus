@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.1
+
+- **Smarter pattern extraction** — grep/rg regex patterns are now parsed to extract the longest identifier-like literal instead of blindly stripping all metacharacters. `(Foo|Bar)` correctly extracts `Foo` instead of producing `FooBar`.
+- **Quote-aware bash tokenizer** — bash commands are now tokenized with proper quote handling and pipe/`&&`/`;` boundary detection. `grep "validateUser" src/` and `cat file.txt | grep foo` now extract the correct pattern.
+- **Cache-after-augment** — patterns are now cached based on results, not before the subprocess runs. Failed or empty augments no longer permanently block retries. A separate `emptyCache` prevents unbounded retries for patterns with no graph data, cleared on session reset.
+- **Case-insensitive dedup** — `validateUser` and `ValidateUser` are now recognized as the same pattern, avoiding redundant subprocess spawns.
+- **Early-exit on empty content** — skips augmentation when the tool returned no meaningful content (< 10 chars), avoiding wasted subprocess spawns on empty grep results.
+- **Cleaner output formatting** — `---` delimiters wrap GitNexus blocks for clearer separation from tool output. Redundant `[GitNexus]` label is omitted when the augment output already includes one.
+
 ## 0.5.0
 
 - **Built for gitnexus >= 1.4.8** — aligned all tool schemas and MCP contracts with gitnexus 1.4.8. Adds `gitnexus_rename` and `gitnexus_cypher` tools, updates `detect_changes` to use `scope`/`base_ref`, normalizes parameter names (`maxDepth`, `includeTests`, `file_path`), and adds multi-repo routing with automatic repo root detection.
