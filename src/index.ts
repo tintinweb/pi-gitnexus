@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from '@mariozechner/pi-coding-agent';
 import { spawn } from 'child_process';
 import { clearIndexCache, extractFilePatternsFromContent, extractFilesFromReadMany, extractPattern, findGitNexusIndex, findGitNexusRoot, type GitNexusConfig, gitnexusCmd, loadSavedConfig, resolveGitNexusCmd, runAugment, setAugmentTimeout, setGitnexusCmd, spawnEnv, updateSpawnEnv } from './gitnexus';
+import { runGitNexusAnalyze, stopGitNexusAnalyze } from './analyze';
 import { mcpClient } from './mcp-client';
 import { registerTools } from './tools';
 import { openMainMenu } from './ui/main-menu';
@@ -172,6 +173,7 @@ export default function(pi: ExtensionAPI) {
 
   async function onSession(ctx: ExtensionContext) {
     mcpClient.stop();
+    stopGitNexusAnalyze();
     clearIndexCache();
     augmentHits = 0;
     hookFires = 0;
@@ -205,8 +207,11 @@ export default function(pi: ExtensionAPI) {
     }
   }
 
-  pi.on('session_start',  (_event: unknown, ctx: ExtensionContext) => { void onSession(ctx); });
-  pi.on('session_switch', (_event: unknown, ctx: ExtensionContext) => { void onSession(ctx); });
+  pi.on('session_start', (_event: unknown, ctx: ExtensionContext) => { void onSession(ctx); });
+  pi.on('session_shutdown', () => {
+    mcpClient.stop();
+    stopGitNexusAnalyze();
+  });
 
   const subcommands = ['status', 'analyze', 'on', 'off', 'settings', 'query', 'context', 'impact', 'help'];
 
@@ -317,16 +322,7 @@ export default function(pi: ExtensionAPI) {
         }
         augmentEnabled = false;
         ctx.ui.notify('GitNexus: analyzing codebase, this may take a while…', 'info');
-        const exitCode = await new Promise<number | null>((resolve_) => {
-          const [bin, ...baseArgs] = gitnexusCmd;
-          const proc = spawn(bin, [...baseArgs, 'analyze'], {
-            cwd: ctx.cwd,
-            stdio: 'ignore',
-            env: spawnEnv,
-          });
-          proc.on('close', resolve_);
-          proc.on('error', () => resolve_(null));
-        });
+        const exitCode = await runGitNexusAnalyze(ctx.cwd, gitnexusCmd, spawnEnv);
         if (exitCode === 0) {
           clearIndexCache();
           augmentEnabled = true;

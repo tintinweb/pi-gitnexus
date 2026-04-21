@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.2
+
+- **Idle MCP shutdown** — `gitnexus mcp` is now stopped 60 seconds after the last tool call instead of staying alive for the whole pi session.
+- **Analyze cleanup** — `/gitnexus analyze` now stops any active GitNexus MCP process before reindexing so the next tool call starts a fresh server against the updated graph.
+- **Lifecycle cleanup** — uses `session_shutdown` for teardown instead of the removed `session_switch` event, preventing stale GitNexus child processes from surviving past their last use.
+- **MCP startup hardening** — stopping the client while `gitnexus mcp` is still handshaking now kills that starting process cleanly and resets client state.
+
 ## 0.5.1
 
 - **Smarter pattern extraction** — grep/rg regex patterns are now parsed to extract the longest identifier-like literal instead of blindly stripping all metacharacters. `(Foo|Bar)` correctly extracts `Foo` instead of producing `FooBar`.
@@ -66,12 +73,12 @@ Initial release.
 
 - **Auto-augment hook** — intercepts grep, find, and bash tool results and appends knowledge graph context (callers, callees, execution flows) via `gitnexus augment`. Mirrors the Claude Code plugin's PreToolUse integration.
 - **Five registered tools** — `gitnexus_list_repos`, `gitnexus_query`, `gitnexus_context`, `gitnexus_impact`, `gitnexus_detect_changes` available to the agent with zero setup.
-- **stdio MCP client** — tools communicate with `gitnexus mcp` over a stdin/stdout pipe (no network socket, no port). Process is spawned lazily and kept alive for the session.
+- **stdio MCP client** — tools communicate with `gitnexus mcp` over a stdin/stdout pipe (no network socket, no port). Process is spawned lazily and kept alive briefly before an idle timeout stops it.
 - **System prompt hint** — when an index is present, appends a one-liner to the agent's system prompt so it understands graph context and knows to use the tools.
-- **Session lifecycle** — on session start/switch: resolves full shell PATH (nvm/fnm/volta), probes binary, checks index, notifies status. MCP process restarted on session switch.
+- **Session lifecycle** — on session start: resolves full shell PATH (nvm/fnm/volta), probes binary, checks index, notifies status. MCP process is stopped on shutdown and restarted lazily on the next tool call.
 - **`/gitnexus` command** with subcommands: `status`, `analyze`, `on`, `off`, `query`, `context`, `impact`, `<pattern>`, `help`.
 - **`/gitnexus analyze`** — runs `gitnexus analyze` from within pi with start/completion notifications. Auto-augment is paused for the duration to avoid stale index results.
-- **Toggle** — `/gitnexus on` / `/gitnexus off` enables/disables auto-augment without affecting tools. Resets to enabled on session switch.
+- **Toggle** — `/gitnexus on` / `/gitnexus off` enables/disables auto-augment without affecting tools. Resets to enabled on session start.
 - **Shell PATH resolution** — spawns `$SHELL -lc 'echo $PATH'` on session start so nvm/fnm/volta-managed binaries are found when pi is launched as a GUI app.
 - **Path traversal guard** — `gitnexus_context` file parameter validated to stay within cwd before passing to the MCP server.
 - **Graceful failure** — every code path (augment timeout, MCP spawn error, binary missing) returns empty rather than throwing. Extension never breaks the agent's normal flow.

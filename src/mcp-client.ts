@@ -1,6 +1,8 @@
 import { ChildProcess, spawn } from 'child_process';
 import { gitnexusCmd, MAX_OUTPUT_CHARS, spawnEnv } from './gitnexus';
 
+const MCP_IDLE_TIMEOUT_MS = 60_000;
+
 interface JsonRpcResponse {
   jsonrpc: '2.0';
   id?: number;
@@ -26,15 +28,31 @@ interface McpToolResult {
  * no network socket, no port. Only our process can write to the pipe.
  *
  * The MCP process is started lazily on the first callTool() invocation and
- * kept alive for the session lifetime. stop() terminates it; the next callTool()
- * re-spawns with the new cwd.
+ * is automatically stopped after 60 seconds of inactivity. stop() terminates it;
+ * the next callTool() re-spawns with the new cwd.
  */
 class GitNexusMcpClient {
   private proc: ChildProcess | null = null;
+  private startingProc: ChildProcess | null = null;
+  private idleTimer: NodeJS.Timeout | null = null;
   private buffer = '';
   private pending = new Map<number, { resolve: (raw: string) => void; reject: (e: Error) => void }>();
   private nextId = 2; // id 1 is reserved for the initialize handshake
   private startPromise: Promise<void> | null = null;
+
+  private clearIdleTimer(): void {
+    if (this.idleTimer) {
+      clearTimeout(this.idleTimer);
+      this.idleTimer = null;
+    }
+  }
+
+  private scheduleIdleStop(): void {
+    this.clearIdleTimer();
+    this.idleTimer = setTimeout(() => {
+      this.stop();
+    }, MCP_IDLE_TIMEOUT_MS);
+  }
 
   /**
    * Lazily spawn `gitnexus mcp` and complete the MCP initialize handshake.
@@ -51,8 +69,14 @@ class GitNexusMcpClient {
         stdio: ['pipe', 'pipe', 'ignore'],
         env: spawnEnv,
       });
+      this.startingProc = proc;
 
       proc.on('error', (err) => {
+        if (this.startingProc === proc) this.startingProc = null;
+        if (this.proc === proc) this.proc = null;
+        this.clearIdleTimer();
+        this.buffer = '';
+        this.nextId = 2;
         this.startPromise = null;
         reject(err);
       });
@@ -75,8 +99,12 @@ class GitNexusMcpClient {
       });
 
       proc.on('close', () => {
-        this.proc = null;
+        if (this.startingProc === proc) this.startingProc = null;
+        if (this.proc === proc) this.proc = null;
+        this.clearIdleTimer();
         this.startPromise = null;
+        this.buffer = '';
+        this.nextId = 2;
         for (const p of this.pending.values()) {
           p.reject(new Error('gitnexus mcp process exited'));
         }
@@ -100,7 +128,9 @@ class GitNexusMcpClient {
           proc.stdin!.write(
             JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n'
           );
+          this.startingProc = null;
           this.proc = proc;
+          this.scheduleIdleStop();
           resolve_();
         },
         reject: (err) => {
@@ -121,6 +151,8 @@ class GitNexusMcpClient {
    * Throws on transport/MCP failures so pi marks the tool call as an error.
    */
   async callTool(name: string, args: Record<string, unknown>, cwd: string): Promise<string> {
+    this.clearIdleTimer();
+
     try {
       await this.ensureStarted(cwd);
     } catch (error) {
@@ -136,11 +168,13 @@ class GitNexusMcpClient {
           try {
             const msg = JSON.parse(raw) as JsonRpcResponse;
             if (msg.error) {
+              this.scheduleIdleStop();
               reject_(this.createError(msg.error.message));
               return;
             }
             const result = msg.result as McpToolResult | undefined;
             if (!result?.content) {
+              this.scheduleIdleStop();
               reject_(this.createError('No response content returned from GitNexus MCP.'));
               return;
             }
@@ -149,19 +183,26 @@ class GitNexusMcpClient {
               .map((c) => c.text!)
               .join('\n');
             if (result.isError) {
+              this.scheduleIdleStop();
               reject_(this.createError(text || 'GitNexus MCP reported an error with no text payload.'));
               return;
             }
             if (!text) {
+              this.scheduleIdleStop();
               reject_(this.createError('GitNexus MCP returned an empty response.'));
               return;
             }
+            this.scheduleIdleStop();
             resolve_('[GitNexus]\n' + text.slice(0, MAX_OUTPUT_CHARS));
           } catch (error) {
+            this.scheduleIdleStop();
             reject_(this.createError(error, 'Malformed response from GitNexus MCP.'));
           }
         },
-        reject: (error) => reject_(this.createError(error, 'GitNexus MCP request failed.')),
+        reject: (error) => {
+          this.scheduleIdleStop();
+          reject_(this.createError(error, 'GitNexus MCP request failed.'));
+        },
       });
 
       const msg = JSON.stringify({
@@ -175,6 +216,7 @@ class GitNexusMcpClient {
         this.proc!.stdin!.write(msg + '\n');
       } catch (error) {
         this.pending.delete(id);
+        this.scheduleIdleStop();
         reject_(this.createError(error, 'Failed to write request to GitNexus MCP.'));
       }
     });
@@ -185,13 +227,24 @@ class GitNexusMcpClient {
     return new Error(`[GitNexus] ${message || fallback}`);
   }
 
-  /** Terminate the MCP process. Called on session_switch so the next session gets a fresh process. */
+  /** Terminate the MCP process. Called on idle timeout, session shutdown, or before reindexing. */
   stop(): void {
-    if (this.proc) {
-      this.proc.kill('SIGTERM');
-      this.proc = null;
-    }
+    const proc = this.proc;
+    const startingProc = this.startingProc;
+    this.proc = null;
+    this.startingProc = null;
+    this.clearIdleTimer();
     this.startPromise = null;
+    this.buffer = '';
+    this.nextId = 2;
+
+    if (proc) {
+      proc.kill('SIGTERM');
+    }
+    if (startingProc && startingProc !== proc) {
+      startingProc.kill('SIGTERM');
+    }
+
     for (const p of this.pending.values()) {
       p.reject(new Error('MCP client stopped'));
     }

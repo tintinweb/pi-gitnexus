@@ -5,6 +5,7 @@
  */
 
 import { spawn } from 'child_process';
+import { runGitNexusAnalyze } from '../analyze.js';
 import type { GitNexusConfig } from '../gitnexus.js';
 import { openSettingsMenu } from './settings-menu.js';
 
@@ -69,16 +70,7 @@ async function runAnalyze(mctx: MenuContext): Promise<void> {
   mctx.state.augmentEnabled = false;
   mctx.syncState();
   mctx.ui.notify('GitNexus: analyzing codebase, this may take a while…', 'info');
-  const exitCode = await new Promise<number | null>((resolve_) => {
-    const [bin, ...baseArgs] = mctx.gitnexusCmd;
-    const proc = spawn(bin, [...baseArgs, 'analyze'], {
-      cwd: mctx.cwd,
-      stdio: 'ignore',
-      env: mctx.spawnEnv,
-    });
-    proc.on('close', resolve_);
-    proc.on('error', () => resolve_(null));
-  });
+  const exitCode = await runGitNexusAnalyze(mctx.cwd, mctx.gitnexusCmd, mctx.spawnEnv);
   if (exitCode === 0) {
     mctx.clearIndexCache();
     mctx.state.augmentEnabled = true;
