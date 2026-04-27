@@ -50,6 +50,7 @@ class GitNexusMcpClient {
         cwd,
         stdio: ['pipe', 'pipe', 'ignore'],
         env: spawnEnv,
+        shell: process.platform === 'win32',
       });
 
       proc.on('error', (err) => {
