@@ -365,6 +365,7 @@ export async function runAugment(pattern: string, cwd: string): Promise<string> 
       cwd,
       stdio: ['ignore', 'ignore', 'pipe'],
       env: spawnEnv,
+      shell: process.platform === 'win32',
     });
 
     const timer = setTimeout(() => {

@@ -21,7 +21,7 @@ async function resolveShellPath(): Promise<void> {
 
 function trySpawn(bin: string, args: string[]): Promise<boolean> {
   return new Promise((resolve_) => {
-    const proc = spawn(bin, args, { stdio: 'ignore', env: spawnEnv });
+    const proc = spawn(bin, args, { stdio: 'ignore', env: spawnEnv, shell: process.platform === 'win32' });
     proc.on('close', (code: number | null) => resolve_(code === 0));
     proc.on('error', () => resolve_(false));
   });
@@ -240,6 +240,7 @@ export default function(pi: ExtensionAPI) {
             cwd: ctx.cwd,
             stdio: ['ignore', 'pipe', 'ignore'],
             env: spawnEnv,
+            shell: process.platform === 'win32',
           });
           proc.stdout.on('data', (chunk: { toString(): string }) => { stdout += chunk.toString(); });
           proc.on('close', () => resolve_(stdout.trim()));
@@ -323,6 +324,7 @@ export default function(pi: ExtensionAPI) {
             cwd: ctx.cwd,
             stdio: 'ignore',
             env: spawnEnv,
+            shell: process.platform === 'win32',
           });
           proc.on('close', resolve_);
           proc.on('error', () => resolve_(null));
