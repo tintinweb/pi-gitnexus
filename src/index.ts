@@ -113,6 +113,8 @@ export default function(pi: ExtensionAPI) {
   pi.on('tool_result', async (event, ctx) => {
     if (!augmentEnabled) return;
     if (!SEARCH_TOOLS.has(event.toolName)) return;
+    // Guard: event.content may be undefined for error results.
+    if (!event.content || !Array.isArray(event.content)) return;
     hookFires++;
     const cwd = sessionCwd || ctx.cwd;
     if (!findGitNexusIndex(cwd)) return;
