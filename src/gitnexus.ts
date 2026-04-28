@@ -8,8 +8,9 @@ export const MAX_OUTPUT_CHARS = 8 * 1024;
 
 /**
  * Environment passed to all child processes.
- * Resolved from a login shell on session_start to pick up nvm/fnm/volta PATH entries
- * that are missing when pi launches as a GUI app.
+ * On session_start, the agent's PATH is merged with the login shell's PATH
+ * (via resolveShellPath) so that nvm/fnm/volta paths are picked up while
+ * preserving any directories the agent already had (e.g. ~/.local/share/nvm/…).
  */
 export let spawnEnv: NodeJS.ProcessEnv = process.env;
 export function updateSpawnEnv(env: NodeJS.ProcessEnv): void { spawnEnv = env; }
