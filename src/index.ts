@@ -1,3 +1,4 @@
+import { delimiter } from 'node:path';
 import type { ExtensionAPI, ExtensionContext } from '@mariozechner/pi-coding-agent';
 import spawn from 'cross-spawn';
 import { clearIndexCache, extractFilePatternsFromContent, extractFilesFromReadMany, extractPattern, findGitNexusIndex, findGitNexusRoot, type GitNexusConfig, gitnexusCmd, loadSavedConfig, resolveGitNexusCmd, runAugment, setAugmentTimeout, setGitnexusCmd, spawnEnv, updateSpawnEnv } from './gitnexus';
@@ -7,16 +8,73 @@ import { openMainMenu } from './ui/main-menu';
 
 const SEARCH_TOOLS = new Set(['grep', 'find', 'bash', 'read', 'read_many']);
 
-/** Resolve PATH from a login shell so nvm/fnm/volta binaries are visible. */
+/**
+ * Merge two PATH values, preferring the agent's PATH over the login shell's PATH
+ * while preserving order.  Any shell-only directories (e.g. nvm/fnm/volta paths
+ * that the agent didn't inherit) are appended at the end so they are still found.
+ *
+ * This prevents the agent's existing PATH entries (such as ~/.local/share/nvm/…)
+ * from being silently dropped when the login shell reports a different PATH.
+ */
+function mergePaths(agent: string, shell: string): string {
+  const seen = new Set<string>();
+  const out: string[] = [];
+
+  for (const dir of [...agent.split(delimiter), ...shell.split(delimiter)]) {
+    if (!dir) continue;
+    const key = process.platform === 'win32' ? dir.toLowerCase() : dir;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(dir);
+  }
+
+  return out.join(delimiter);
+}
+
+/**
+ * Resolve PATH from a login shell so nvm/fnm/volta binaries are visible.
+ * Merges with the agent's current PATH so directories already present
+ * (e.g. ~/.local/share/nvm/…) are never lost.
+ *
+ * On Windows the agent's PATH is already correct so we skip the probe entirely.
+ * On macOS/Linux we use the user's login shell ($SHELL) to read login startup
+ * files (.zprofile, .bash_profile, .profile), which is where most package
+ * managers place their PATH setup.
+ *
+ * The probe is bounded by a timeout to prevent a slow or broken startup file
+ * from stalling session initialization.
+ */
 async function resolveShellPath(): Promise<void> {
-  const path = await new Promise<string>((resolve_) => {
+  if (process.platform === 'win32') return;
+
+  const loginShell = process.env.SHELL ?? '/bin/sh';
+  const shellPath = await new Promise<string>((resolve_) => {
     let out = '';
-    const proc = spawn('/bin/sh', ['-lc', 'printf %s "$PATH"'], { stdio: ['ignore', 'pipe', 'ignore'] });
+    let done = false;
+
+    const finish = (value: string) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      resolve_(value);
+    };
+
+    const proc = spawn(loginShell, ['-lc', 'printf %s "$PATH"'], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+
+    const timer = setTimeout(() => {
+      proc.kill();
+      finish(process.env.PATH ?? '');
+    }, 3_000);
+
     proc.stdout!.on('data', (d: { toString(): string }) => { out += d.toString(); });
-    proc.on('close', () => resolve_(out.trim() || (process.env.PATH ?? '')));
-    proc.on('error', () => resolve_(process.env.PATH ?? ''));
+    proc.on('close', () => finish(out.trim() || (process.env.PATH ?? '')));
+    proc.on('error', () => finish(process.env.PATH ?? ''));
   });
-  updateSpawnEnv({ ...process.env, PATH: path });
+
+  const merged = mergePaths(process.env.PATH ?? '', shellPath);
+  updateSpawnEnv({ ...process.env, PATH: merged });
 }
 
 function trySpawn(bin: string, args: string[]): Promise<boolean> {
@@ -92,6 +150,8 @@ export default function(pi: ExtensionAPI) {
   pi.on('tool_result', async (event, ctx) => {
     if (!augmentEnabled) return;
     if (!SEARCH_TOOLS.has(event.toolName)) return;
+    // Guard: event.content may be undefined for error results.
+    if (!event.content || !Array.isArray(event.content)) return;
     hookFires++;
     const cwd = sessionCwd || ctx.cwd;
     if (!findGitNexusIndex(cwd)) return;
@@ -205,7 +265,11 @@ export default function(pi: ExtensionAPI) {
     }
   }
 
-  pi.on('session_start', (_event: unknown, ctx: ExtensionContext) => { void onSession(ctx); });
+  pi.on('session_start', (_event: unknown, ctx: ExtensionContext) => {
+    void onSession(ctx).catch(err => {
+      ctx.ui.notify(`GitNexus session init failed: ${err.message}`, 'error');
+    });
+  });
 
   const subcommands = ['status', 'analyze', 'on', 'off', 'settings', 'query', 'context', 'impact', 'help'];
 
