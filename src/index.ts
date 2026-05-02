@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from '@mariozechner/pi-coding-agent';
 import spawn from 'cross-spawn';
 import { clearIndexCache, extractFilePatternsFromContent, extractFilesFromReadMany, extractPattern, findGitNexusIndex, findGitNexusRoot, type GitNexusConfig, gitnexusCmd, loadSavedConfig, resolveGitNexusCmd, runAugment, setAugmentTimeout, setGitnexusCmd, spawnEnv, updateSpawnEnv } from './gitnexus';
+import { initI18n, t } from './i18n';
 import { mcpClient } from './mcp-client';
 import { registerTools } from './tools';
 import { openMainMenu } from './ui/main-menu';
@@ -65,6 +66,7 @@ const augmentedCache = new Set<string>();
 const emptyCache = new Set<string>();
 
 export default function(pi: ExtensionAPI) {
+  initI18n(pi);
   registerTools(pi);
 
   pi.registerFlag('gitnexus-cmd', {
@@ -193,15 +195,9 @@ export default function(pi: ExtensionAPI) {
     if (!findGitNexusIndex(ctx.cwd)) return;
 
     if (binaryAvailable) {
-      ctx.ui.notify(
-        'GitNexus: knowledge graph active — searches will be enriched automatically.',
-        'info',
-      );
+      ctx.ui.notify(t('notify.active'), 'info');
     } else {
-      ctx.ui.notify(
-        'GitNexus index found but gitnexus is not on PATH. Install: npm i -g gitnexus',
-        'warning',
-      );
+      ctx.ui.notify(t('notify.missingBinary'), 'warning');
     }
   }
 
@@ -225,11 +221,11 @@ export default function(pi: ExtensionAPI) {
       // /gitnexus status
       if (sub === 'status') {
         if (!binaryAvailable) {
-          ctx.ui.notify('gitnexus is not installed. Install: npm i -g gitnexus', 'warning');
+          ctx.ui.notify(t('status.notInstalled'), 'warning');
           return;
         }
         if (!findGitNexusIndex(ctx.cwd)) {
-          ctx.ui.notify('No GitNexus index found. Run: /gitnexus analyze', 'info');
+          ctx.ui.notify(t('status.noIndex'), 'info');
           return;
         }
         const out = await new Promise<string>((resolve_) => {
@@ -278,7 +274,7 @@ export default function(pi: ExtensionAPI) {
       // /gitnexus on | off
       if (sub === 'on' || sub === 'off') {
         augmentEnabled = sub === 'on';
-        ctx.ui.notify(`GitNexus auto-augment ${augmentEnabled ? 'enabled' : 'disabled'}.`, 'info');
+        ctx.ui.notify(t('autoAugment.state', { state: augmentEnabled ? 'enabled' : 'disabled' }), 'info');
         return;
       }
 
@@ -311,11 +307,11 @@ export default function(pi: ExtensionAPI) {
       // /gitnexus analyze
       if (sub === 'analyze') {
         if (!binaryAvailable) {
-          ctx.ui.notify('gitnexus is not installed. Install: npm i -g gitnexus', 'warning');
+          ctx.ui.notify(t('status.notInstalled'), 'warning');
           return;
         }
         augmentEnabled = false;
-        ctx.ui.notify('GitNexus: analyzing codebase, this may take a while…', 'info');
+        ctx.ui.notify(t('analyze.start'), 'info');
         const exitCode = await new Promise<number | null>((resolve_) => {
           const [bin, ...baseArgs] = gitnexusCmd;
           const proc = spawn(bin, [...baseArgs, 'analyze'], {
@@ -329,10 +325,10 @@ export default function(pi: ExtensionAPI) {
         if (exitCode === 0) {
           clearIndexCache();
           augmentEnabled = true;
-          ctx.ui.notify('GitNexus: analysis complete. Knowledge graph ready.', 'info');
+          ctx.ui.notify(t('analyze.complete'), 'info');
         } else {
           augmentEnabled = true;
-          ctx.ui.notify('GitNexus: analysis failed. Check the terminal for details.', 'error');
+          ctx.ui.notify(t('analyze.failed'), 'error');
         }
         return;
       }
@@ -341,49 +337,49 @@ export default function(pi: ExtensionAPI) {
 
       // /gitnexus query <text>
       if (sub === 'query') {
-        if (!rest) { ctx.ui.notify('Usage: /gitnexus query <text>', 'info'); return; }
+        if (!rest) { ctx.ui.notify(t('query.usage'), 'info'); return; }
         try {
           const out = await mcpClient.callTool('query', { query: rest, repo }, ctx.cwd);
           if (out) pi.sendUserMessage(out, { deliverAs: 'followUp' });
-          else ctx.ui.notify('No results.', 'info');
+          else ctx.ui.notify(t('result.none'), 'info');
         } catch (error) {
-          ctx.ui.notify(error instanceof Error ? error.message : 'GitNexus query failed.', 'error');
+          ctx.ui.notify(error instanceof Error ? error.message : t('query.failed'), 'error');
         }
         return;
       }
 
       // /gitnexus context <name>
       if (sub === 'context') {
-        if (!rest) { ctx.ui.notify('Usage: /gitnexus context <name>', 'info'); return; }
+        if (!rest) { ctx.ui.notify(t('context.usage'), 'info'); return; }
         try {
           const out = await mcpClient.callTool('context', { name: rest, repo }, ctx.cwd);
           if (out) pi.sendUserMessage(out, { deliverAs: 'followUp' });
-          else ctx.ui.notify('No results.', 'info');
+          else ctx.ui.notify(t('result.none'), 'info');
         } catch (error) {
-          ctx.ui.notify(error instanceof Error ? error.message : 'GitNexus context lookup failed.', 'error');
+          ctx.ui.notify(error instanceof Error ? error.message : t('context.failed'), 'error');
         }
         return;
       }
 
       // /gitnexus impact <name>
       if (sub === 'impact') {
-        if (!rest) { ctx.ui.notify('Usage: /gitnexus impact <name>', 'info'); return; }
+        if (!rest) { ctx.ui.notify(t('impact.usage'), 'info'); return; }
         try {
           const out = await mcpClient.callTool('impact', { target: rest, direction: 'upstream', repo }, ctx.cwd);
           if (out) pi.sendUserMessage(out, { deliverAs: 'followUp' });
-          else ctx.ui.notify('No results.', 'info');
+          else ctx.ui.notify(t('result.none'), 'info');
         } catch (error) {
-          ctx.ui.notify(error instanceof Error ? error.message : 'GitNexus impact analysis failed.', 'error');
+          ctx.ui.notify(error instanceof Error ? error.message : t('impact.failed'), 'error');
         }
         return;
       }
 
       // /gitnexus <pattern>  — manual augment lookup
       const pattern = sub + (rest ? ' ' + rest : '');
-      if (pattern.length < 3) { ctx.ui.notify('Pattern too short (min 3 chars).', 'info'); return; }
+      if (pattern.length < 3) { ctx.ui.notify(t('pattern.tooShort'), 'info'); return; }
       const out = await runAugment(pattern, ctx.cwd);
       if (out) pi.sendUserMessage('[GitNexus]\n' + out, { deliverAs: 'followUp' });
-      else ctx.ui.notify('No graph context found for: ' + pattern, 'info');
+      else ctx.ui.notify(t('pattern.noContext', { pattern }), 'info');
     },
   });
 }
