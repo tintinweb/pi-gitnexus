@@ -1,14 +1,12 @@
 import type { ExtensionAPI, ExtensionContext } from '@mariozechner/pi-coding-agent';
 import spawn from 'cross-spawn';
+import { delimiter } from 'node:path';
 import { clearIndexCache, extractFilePatternsFromContent, extractFilesFromReadMany, extractPattern, findGitNexusIndex, findGitNexusRoot, type GitNexusConfig, gitnexusCmd, loadSavedConfig, resolveGitNexusCmd, runAugment, setAugmentTimeout, setGitnexusCmd, spawnEnv, updateSpawnEnv } from './gitnexus';
 import { mcpClient } from './mcp-client';
 import { registerTools } from './tools';
 import { openMainMenu } from './ui/main-menu';
 
 const SEARCH_TOOLS = new Set(['grep', 'find', 'bash', 'read', 'read_many']);
-
-/** Platform-appropriate PATH separator. */
-const PATH_SEP = process.platform === 'win32' ? ';' : ':';
 
 /**
  * Merge two PATH values, preferring the agent's PATH over the login shell's PATH
@@ -19,11 +17,18 @@ const PATH_SEP = process.platform === 'win32' ? ';' : ':';
  * from being silently dropped when the login shell reports a different PATH.
  */
 function mergePaths(agent: string, shell: string): string {
-  const agentDirs = agent.split(PATH_SEP);
-  const shellDirs = shell.split(PATH_SEP);
-  const agentSet = new Set(agentDirs);
-  const merged = [...agentDirs, ...shellDirs.filter(d => !agentSet.has(d))];
-  return merged.join(PATH_SEP);
+  const seen = new Set<string>();
+  const out: string[] = [];
+
+  for (const dir of [...agent.split(delimiter), ...shell.split(delimiter)]) {
+    if (!dir) continue;
+    const key = process.platform === 'win32' ? dir.toLowerCase() : dir;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(dir);
+  }
+
+  return out.join(delimiter);
 }
 
 /**
@@ -31,22 +36,43 @@ function mergePaths(agent: string, shell: string): string {
  * Merges with the agent's current PATH so directories already present
  * (e.g. ~/.local/share/nvm/…) are never lost.
  *
- * On Windows the agent's PATH is already correct so we skip the login-shell
- * probe entirely.  On macOS we use the user's actual login shell ($SHELL)
- * instead of /bin/sh so that Homebrew, nvm, volta etc. are found.
+ * On Windows the agent's PATH is already correct so we skip the probe entirely.
+ * On macOS/Linux we use the user's login shell ($SHELL) to read login startup
+ * files (.zprofile, .bash_profile, .profile), which is where most package
+ * managers place their PATH setup.
+ *
+ * The probe is bounded by a timeout to prevent a slow or broken startup file
+ * from stalling session initialization.
  */
 async function resolveShellPath(): Promise<void> {
-  if (process.platform === 'win32') {
-    return;
-  }
+  if (process.platform === 'win32') return;
+
   const loginShell = process.env.SHELL ?? '/bin/sh';
   const shellPath = await new Promise<string>((resolve_) => {
     let out = '';
-    const proc = spawn(loginShell, ['-lc', 'printf %s "$PATH"'], { stdio: ['ignore', 'pipe', 'ignore'] });
+    let done = false;
+
+    const finish = (value: string) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      resolve_(value);
+    };
+
+    const proc = spawn(loginShell, ['-lc', 'printf %s "$PATH"'], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+
+    const timer = setTimeout(() => {
+      proc.kill();
+      finish(process.env.PATH ?? '');
+    }, 3_000);
+
     proc.stdout!.on('data', (d: { toString(): string }) => { out += d.toString(); });
-    proc.on('close', () => resolve_(out.trim() || (process.env.PATH ?? '')));
-    proc.on('error', () => resolve_(process.env.PATH ?? ''));
+    proc.on('close', () => finish(out.trim() || (process.env.PATH ?? '')));
+    proc.on('error', () => finish(process.env.PATH ?? ''));
   });
+
   const merged = mergePaths(process.env.PATH ?? '', shellPath);
   updateSpawnEnv({ ...process.env, PATH: merged });
 }
