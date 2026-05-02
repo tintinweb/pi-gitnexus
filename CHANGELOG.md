@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.1
+
+- **PATH resolution no longer drops nvm/fnm/volta dirs** — `resolveShellPath` previously *replaced* `process.env.PATH` with the login shell's PATH, which silently dropped any directories the agent already had (e.g. `~/.local/share/nvm/…` inherited from the launching shell). On macOS where users typically place nvm setup in `.zshrc` (interactive) rather than `.zprofile` (login), the login-shell probe returns a PATH without nvm — and the old code then clobbered nvm out of the agent's PATH, producing spurious "gitnexus is not on PATH" warnings even when gitnexus was correctly installed. Now both PATHs are merged with agent-first precedence and platform-aware deduplication via `node:path`'s `delimiter`.
+- **Login-shell probe uses `$SHELL` and is bounded by a 3s timeout** — replaced the hardcoded `/bin/sh` (which never sources zsh/bash login files) with `$SHELL`, and short-circuits on Windows where the agent's PATH is already correct. A 3-second timeout prevents a slow or broken `.zprofile`/`.bash_profile` from stalling session initialization.
+- **`tool_result` hook no longer crashes on error results** — added a guard for `event.content` being undefined or non-array, which can occur for tool error responses. Previously `event.content.map(...)` threw a `TypeError` and broke the augmentation pipeline for the rest of the session.
+- **`session_start` errors are surfaced instead of swallowed** — the previous `void onSession(ctx)` silently dropped any thrown error during session initialization. Now a `.catch` reports the failure via `ctx.ui.notify` so the user sees what went wrong.
+
 ## 0.6.0
 
 **Breaking — peer dependency change.** Now requires `@mariozechner/pi-ai` and `@mariozechner/pi-coding-agent` ≥ 0.70, and `typebox` (unscoped, ≥ 1.x) instead of `@sinclair/typebox`. Users still on the 0.62 line of pi-ai/pi-coding-agent should stay on pi-gitnexus 0.5.x.
