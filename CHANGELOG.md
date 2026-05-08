@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.2
+
+**Breaking — peer dependency scope change.** The `@mariozechner/*` packages were deprecated in favor of `@earendil-works/*`. Consumers must have `@earendil-works/pi-ai`, `@earendil-works/pi-coding-agent`, and `@earendil-works/pi-tui` ≥ 0.74 installed.
+
+- **Migrated to `@earendil-works/*` scope** — `@mariozechner/pi-ai` → `@earendil-works/pi-ai`, `@mariozechner/pi-coding-agent` → `@earendil-works/pi-coding-agent`, and the previously-transitive `pi-tui` is now an explicit peer at `@earendil-works/pi-tui`. Pinned to 0.74.0 (was 0.72.1). Closes #12.
+- **Slimmer `package.json`** — dropped `devDependencies` duplicates of the `pi-*` peers. npm 7+ auto-installs peer deps when developing the package itself, so the duplication added lockfile churn for no benefit.
+- **Routine dev-dep bumps**: `@types/node` ^25.6.0 → ^25.6.2, `typebox` 1.1.37 → 1.1.38 (lockfile-only; peer range `>=1.0` already covered it).
+
 ## 0.6.1
 
 - **PATH resolution no longer drops nvm/fnm/volta dirs** — `resolveShellPath` previously *replaced* `process.env.PATH` with the login shell's PATH, which silently dropped any directories the agent already had (e.g. `~/.local/share/nvm/…` inherited from the launching shell). On macOS where users typically place nvm setup in `.zshrc` (interactive) rather than `.zprofile` (login), the login-shell probe returns a PATH without nvm — and the old code then clobbered nvm out of the agent's PATH, producing spurious "gitnexus is not on PATH" warnings even when gitnexus was correctly installed. Now both PATHs are merged with agent-first precedence and platform-aware deduplication via `node:path`'s `delimiter`.
