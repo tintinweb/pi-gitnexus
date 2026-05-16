@@ -1,12 +1,12 @@
 import { delimiter } from 'node:path';
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
 import spawn from 'cross-spawn';
-import { clearIndexCache, extractFilePatternsFromContent, extractFilesFromReadMany, extractPattern, findGitNexusIndex, findGitNexusRoot, type GitNexusConfig, gitnexusCmd, loadSavedConfig, resolveGitNexusCmd, runAugment, runGitNexusAnalyze, setAugmentTimeout, setGitnexusCmd, spawnEnv, updateSpawnEnv } from './gitnexus';
+import { classifyAugmentTool, clearIndexCache, extractFilePatternsFromContent, extractFilesFromReadMany, extractPattern, findGitNexusIndex, findGitNexusRoot, type GitNexusConfig, gitnexusCmd, loadSavedConfig, resolveGitNexusCmd, runAugment, runGitNexusAnalyze, setAugmentTimeout, setGitnexusCmd, spawnEnv, updateSpawnEnv } from './gitnexus';
 import { mcpClient, setMcpIdleTimeout } from './mcp-client';
 import { registerTools } from './tools';
 import { openMainMenu } from './ui/main-menu';
 
-const SEARCH_TOOLS = new Set(['grep', 'find', 'bash', 'read', 'read_many']);
+
 
 /**
  * Merge two PATH values, preferring the agent's PATH over the login shell's PATH
@@ -154,7 +154,8 @@ export default function(pi: ExtensionAPI) {
   // Intercepts grep/find/bash/read results, appends knowledge graph context.
   pi.on('tool_result', async (event, ctx) => {
     if (!augmentEnabled) return;
-    if (!SEARCH_TOOLS.has(event.toolName)) return;
+    const augmentToolKind = classifyAugmentTool(event.toolName);
+    if (!augmentToolKind) return;
     // Guard: event.content may be undefined for error results.
     if (!event.content || !Array.isArray(event.content)) return;
     hookFires++;
@@ -162,7 +163,7 @@ export default function(pi: ExtensionAPI) {
     if (!findGitNexusIndex(cwd)) return;
 
     // read_many: per-file labeled context so the agent knows which context belongs to which file.
-    if (event.toolName === 'read_many') {
+    if (augmentToolKind === 'read_many') {
       const files = extractFilesFromReadMany(event.input, event.content);
       const fresh = files.filter(f => {
         const key = f.pattern.toLowerCase();
@@ -199,9 +200,9 @@ export default function(pi: ExtensionAPI) {
     if (contentText.length < 10) return;
 
     // Collect patterns: primary from input, secondary filenames from result content.
-    const primary = extractPattern(event.toolName, event.input);
+    const primary = extractPattern(augmentToolKind, event.input);
     const secondaryLimit = cfg.maxSecondaryPatterns ?? 2;
-    const secondary = (event.toolName === 'grep' || event.toolName === 'bash')
+    const secondary = (augmentToolKind === 'grep' || augmentToolKind === 'bash')
       ? extractFilePatternsFromContent(event.content, secondaryLimit)
       : [];
     const candidates = [...new Set([primary, ...secondary].filter((p): p is string => !!p))];

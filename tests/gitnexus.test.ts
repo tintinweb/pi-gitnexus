@@ -3,11 +3,13 @@ import { mkdtempSync, mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
 import { homedir, tmpdir } from 'os';
 import {
+  classifyAugmentTool,
   expandUserPath,
   extractFilesFromReadMany,
   extractLiteralFromRegex,
   extractPattern,
   findGitNexusRoot,
+  getAugmentToolAliases,
   normalizePathArg,
   resolveGitNexusCmd,
   validateRepoRelativePath,
@@ -95,6 +97,50 @@ describe('extractLiteralFromRegex', () => {
   it('strips surrounding quotes', () => {
     expect(extractLiteralFromRegex('"validateUser"')).toBe('validateUser');
     expect(extractLiteralFromRegex("'authenticate'")).toBe('authenticate');
+  });
+});
+
+describe('augment tool aliases', () => {
+  it('uses defaults when no env vars are set', () => {
+    const env: NodeJS.ProcessEnv = {};
+    expect(getAugmentToolAliases(env)).toEqual({
+      read: ['read'],
+      read_many: ['read_many'],
+      grep: ['grep'],
+      find: ['find'],
+      bash: ['bash'],
+    });
+    expect(classifyAugmentTool('grep', env)).toBe('grep');
+    expect(classifyAugmentTool('read', env)).toBe('read');
+    expect(classifyAugmentTool('ctx_grep', env)).toBeNull();
+    expect(classifyAugmentTool('ctx_read', env)).toBeNull();
+  });
+
+  it('supports csv env overrides', () => {
+    const env: NodeJS.ProcessEnv = {
+      GITNEXUS_AUGMENT_GREP_TOOLS: 'grep,ctx_grep',
+      GITNEXUS_AUGMENT_READ_TOOLS: 'read,ctx_read',
+    };
+    expect(classifyAugmentTool('ctx_grep', env)).toBe('grep');
+    expect(classifyAugmentTool('ctx_read', env)).toBe('read');
+  });
+
+  it('supports pi-lean-ctx preset', () => {
+    const env: NodeJS.ProcessEnv = { GITNEXUS_AUGMENT_PRESET: 'pi-lean-ctx' };
+    expect(classifyAugmentTool('ctx_read', env)).toBe('read');
+    expect(classifyAugmentTool('ctx_grep', env)).toBe('grep');
+    expect(classifyAugmentTool('ctx_find', env)).toBe('find');
+    expect(classifyAugmentTool('ctx_shell', env)).toBe('bash');
+  });
+
+  it('lets explicit env override preset per kind', () => {
+    const env: NodeJS.ProcessEnv = {
+      GITNEXUS_AUGMENT_PRESET: 'pi-lean-ctx',
+      GITNEXUS_AUGMENT_GREP_TOOLS: 'grep,my_grep',
+    };
+    expect(classifyAugmentTool('my_grep', env)).toBe('grep');
+    expect(classifyAugmentTool('ctx_grep', env)).toBeNull();
+    expect(classifyAugmentTool('ctx_read', env)).toBe('read');
   });
 });
 
