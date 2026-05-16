@@ -104,12 +104,71 @@ export function clearIndexCache(): void {
   indexRootCache.clear();
 }
 
+export type AugmentToolKind = 'read' | 'read_many' | 'grep' | 'find' | 'bash';
+
+export const DEFAULT_TOOL_ALIASES: Record<AugmentToolKind, string[]> = {
+  read: ['read'],
+  read_many: ['read_many'],
+  grep: ['grep'],
+  find: ['find'],
+  bash: ['bash'],
+};
+
+const PI_LEAN_CTX_PRESET_ALIASES: Record<AugmentToolKind, string[]> = {
+  read: ['read', 'ctx_read'],
+  read_many: ['read_many'],
+  grep: ['grep', 'ctx_grep'],
+  find: ['find', 'ctx_find'],
+  bash: ['bash', 'ctx_shell'],
+};
+
+const TOOL_ALIAS_ENV_VARS: Record<AugmentToolKind, string> = {
+  read: 'GITNEXUS_AUGMENT_READ_TOOLS',
+  read_many: 'GITNEXUS_AUGMENT_READ_MANY_TOOLS',
+  grep: 'GITNEXUS_AUGMENT_GREP_TOOLS',
+  find: 'GITNEXUS_AUGMENT_FIND_TOOLS',
+  bash: 'GITNEXUS_AUGMENT_BASH_TOOLS',
+};
+
 /** File extensions worth augmenting when the agent reads a file. */
 const CODE_EXTENSIONS = new Set([
   '.sol', '.ts', '.tsx', '.js', '.jsx', '.py', '.go', '.rs', '.java',
   '.kt', '.swift', '.c', '.cpp', '.h', '.hpp', '.cs', '.rb', '.php',
   '.vy', '.fe', '.huff', '.md', '.mdx',
 ]);
+
+function parseCsvEnv(name: string, env: NodeJS.ProcessEnv): string[] | null {
+  const raw = env[name]?.trim();
+  if (!raw) return null;
+  return raw.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+export function getAugmentToolAliases(
+  env: NodeJS.ProcessEnv = process.env,
+): Record<AugmentToolKind, string[]> {
+  const base = env.GITNEXUS_AUGMENT_PRESET?.trim() === 'pi-lean-ctx'
+    ? PI_LEAN_CTX_PRESET_ALIASES
+    : DEFAULT_TOOL_ALIASES;
+
+  return {
+    read: parseCsvEnv(TOOL_ALIAS_ENV_VARS.read, env) ?? [...base.read],
+    read_many: parseCsvEnv(TOOL_ALIAS_ENV_VARS.read_many, env) ?? [...base.read_many],
+    grep: parseCsvEnv(TOOL_ALIAS_ENV_VARS.grep, env) ?? [...base.grep],
+    find: parseCsvEnv(TOOL_ALIAS_ENV_VARS.find, env) ?? [...base.find],
+    bash: parseCsvEnv(TOOL_ALIAS_ENV_VARS.bash, env) ?? [...base.bash],
+  };
+}
+
+export function classifyAugmentTool(
+  toolName: string,
+  env: NodeJS.ProcessEnv = process.env,
+): AugmentToolKind | null {
+  const aliases = getAugmentToolAliases(env);
+  for (const [kind, names] of Object.entries(aliases) as Array<[AugmentToolKind, string[]]>) {
+    if (names.includes(toolName)) return kind;
+  }
+  return null;
+}
 
 /**
  * Extract the longest identifier-like literal from a regex pattern.
@@ -190,7 +249,7 @@ function tokenizeBashCmd(cmd: string): string[] {
  *
  * Returns null if pattern is missing or shorter than 3 chars.
  */
-export function extractPattern(toolName: string, input: Record<string, unknown>): string | null {
+export function extractPattern(toolName: AugmentToolKind, input: Record<string, unknown>): string | null {
   let pattern: string | null = null;
 
   if (toolName === 'grep') {
