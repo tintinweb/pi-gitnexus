@@ -64,6 +64,50 @@ The extension never installs anything automatically. It assumes `gitnexus` is on
 
 Each tool result augments up to 3 patterns in parallel (up to 5 for `read_many`). Patterns already augmented this session are skipped.
 
+## Configuring auto-augment tool aliases
+
+By default, auto-augment listens to built-in Pi tool names only:
+
+- `read`
+- `read_many`
+- `grep`
+- `find`
+- `bash`
+
+You can map wrapper tool names to those logical augment kinds with shell-friendly CSV env vars:
+
+```bash
+GITNEXUS_AUGMENT_READ_TOOLS=read,ctx_read
+GITNEXUS_AUGMENT_READ_MANY_TOOLS=read_many
+GITNEXUS_AUGMENT_GREP_TOOLS=grep,ctx_grep
+GITNEXUS_AUGMENT_FIND_TOOLS=find,ctx_find
+GITNEXUS_AUGMENT_BASH_TOOLS=bash,ctx_shell
+```
+
+Optional convenience preset for pi-lean-ctx:
+
+```bash
+GITNEXUS_AUGMENT_PRESET=pi-lean-ctx
+```
+
+Preset expands aliases to:
+
+- `read` → `read`, `ctx_read`
+- `read_many` → `read_many`
+- `grep` → `grep`, `ctx_grep`
+- `find` → `find`, `ctx_find`
+- `bash` → `bash`, `ctx_shell`
+
+If preset and explicit env var both exist, explicit env var replaces preset for that logical kind.
+
+Recommended pi-lean-ctx coexistence:
+
+```bash
+LEAN_CTX_PI_MODE=additive
+LEAN_CTX_PI_ENABLE_MCP=0
+GITNEXUS_AUGMENT_PRESET=pi-lean-ctx
+```
+
 ## Commands
 
 | Command | Description |

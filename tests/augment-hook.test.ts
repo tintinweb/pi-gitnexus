@@ -70,6 +70,12 @@ describe('auto-augment hook', () => {
   beforeEach(async () => {
     runAugmentMock.mockReset();
     findGitNexusIndexMock.mockReturnValue(true);
+    delete process.env.GITNEXUS_AUGMENT_PRESET;
+    delete process.env.GITNEXUS_AUGMENT_READ_TOOLS;
+    delete process.env.GITNEXUS_AUGMENT_READ_MANY_TOOLS;
+    delete process.env.GITNEXUS_AUGMENT_GREP_TOOLS;
+    delete process.env.GITNEXUS_AUGMENT_FIND_TOOLS;
+    delete process.env.GITNEXUS_AUGMENT_BASH_TOOLS;
     vi.resetModules();
   });
 
@@ -201,6 +207,31 @@ describe('auto-augment hook', () => {
     expect(runAugmentMock).toHaveBeenCalledWith('validator', '/repo-root');
     expect(result).toBeDefined();
     expect(result.content[1].text).toContain('callers: main');
+  });
+
+  it('supports ctx_* aliases via env config', async () => {
+    process.env.GITNEXUS_AUGMENT_PRESET = 'pi-lean-ctx';
+    runAugmentMock.mockResolvedValue('context');
+
+    const { default: register } = await import('../src/index');
+    register(createPi() as any);
+
+    const grepResult = await fireToolResult({
+      toolName: 'ctx_grep',
+      input: { pattern: 'validateUser' },
+      content: [{ type: 'text', text: 'src/auth.ts:42:function validateUser()' }],
+    });
+    expect(grepResult).toBeDefined();
+    expect(runAugmentMock).toHaveBeenCalledWith('validateUser', '/repo-root');
+
+    runAugmentMock.mockClear();
+    const readResult = await fireToolResult({
+      toolName: 'ctx_read',
+      input: { path: '/repo/src/validator.ts' },
+      content: [{ type: 'text', text: 'file contents here' }],
+    });
+    expect(readResult).toBeDefined();
+    expect(runAugmentMock).toHaveBeenCalledWith('validator', '/repo-root');
   });
 
   it('extracts secondary patterns from grep output', async () => {
