@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.4
+
+- **`session_start` is now awaited — fixes stale-ctx boot crash (#16)** — the handler was fire-and-forget (`void onSession(ctx)`), so the runner's serial `await handler()` resolved immediately while `onSession`'s async tail (shell-PATH resolve, binary probe) kept running. A session replacement (resume/fork/switch/reload) during that window disposed the ctx, and the deferred `ctx.cwd`/`ctx.ui.notify` access threw via `assertActive`. The handler now `await`s `onSession` so init completes before the loop can replace the session. Error path switched from `ctx.ui.notify` to `console.error` (supersedes the 0.6.1 note) — touching ctx in the catch could trip the same staleness check.
+- **Binary probe is now timeout-bounded** — `trySpawn` gained a default 5s timeout. Because boot now awaits the probe, a hung `gitnexus --version` (slow/broken custom `gitnexus-cmd`) would otherwise block session init indefinitely; `resolveShellPath` was already bounded, `trySpawn` was not.
+
 ## 0.6.3
 
 - **MCP idle shutdown** — `gitnexus mcp` now stops after 10 minutes of inactivity (configurable via `/gitnexus settings → MCP idle timeout`; `'off'` keeps it alive for the session, matching prior behavior). Releases the Python process and graph memory during long quiet stretches; the next MCP-routed call respawns at the cold-start cost (~1–3s). Auto-augment is unaffected — it uses a separate one-shot `gitnexus augment` subprocess.
