@@ -77,11 +77,13 @@ async function resolveShellPath(): Promise<void> {
   updateSpawnEnv({ ...process.env, PATH: merged });
 }
 
-function trySpawn(bin: string, args: string[]): Promise<boolean> {
+function trySpawn(bin: string, args: string[], timeoutMs = 5_000): Promise<boolean> {
   return new Promise((resolve_) => {
     const proc = spawn(bin, args, { stdio: 'ignore', env: spawnEnv });
-    proc.on('close', (code: number | null) => resolve_(code === 0));
-    proc.on('error', () => resolve_(false));
+    const timer = setTimeout(() => { proc.kill(); resolve_(false); }, timeoutMs);
+    const finish = (ok: boolean) => { clearTimeout(timer); resolve_(ok); };
+    proc.on('close', (code: number | null) => finish(code === 0));
+    proc.on('error', () => finish(false));
   });
 }
 
@@ -91,7 +93,7 @@ async function probeGitNexusBinary(): Promise<boolean> {
   return trySpawn(bin, [...args, '--version']);
 }
 
-/** Cached from session_start/session_switch — avoids re-probing on every /gitnexus status. */
+/** Cached from session_start — avoids re-probing on every /gitnexus status. */
 let binaryAvailable = false;
 
 /** Working directory of the current session — ctx.cwd in tool_result events may differ. */
