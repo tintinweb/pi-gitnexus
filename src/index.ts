@@ -270,10 +270,13 @@ export default function(pi: ExtensionAPI) {
     }
   }
 
-  pi.on('session_start', (_event: unknown, ctx: ExtensionContext) => {
-    void onSession(ctx).catch(err => {
-      ctx.ui.notify(`GitNexus session init failed: ${err.message}`, 'error');
-    });
+  pi.on('session_start', async (_event: unknown, ctx: ExtensionContext) => {
+    try {
+      await onSession(ctx);
+    } catch (err) {
+      // Don't touch ctx here — it may be stale if onSession ran past replacement.
+      console.error('[pi-gitnexus] session init failed:', err instanceof Error ? err.message : String(err));
+    }
   });
 
   pi.on('session_shutdown', () => {
