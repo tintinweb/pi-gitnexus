@@ -1,6 +1,6 @@
 # pi-gitnexus
 
-[GitNexus](https://github.com/abhigyanpatwari/GitNexus) knowledge graph integration for [pi](https://github.com/mariozechner/pi). Enriches every search, file read, and symbol lookup with call chains, callers/callees, and execution flows — automatically.
+[GitNexus](https://github.com/abhigyanpatwari/GitNexus) knowledge graph integration for [pi](https://github.com/earendil-works/pi). Enriches every search, file read, and symbol lookup with call chains, callers/callees, and execution flows — automatically.
 
 <img height="298" alt="pi-gitnexus screenshot" src="https://github.com/tintinweb/pi-gitnexus/raw/master/media/screenshot.png" />
 
