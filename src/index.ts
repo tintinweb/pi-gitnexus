@@ -6,7 +6,14 @@ import { mcpClient, setMcpIdleTimeout } from './mcp-client';
 import { registerTools } from './tools';
 import { openMainMenu } from './ui/main-menu';
 
-const SEARCH_TOOLS = new Set(['grep', 'find', 'bash', 'read', 'read_many']);
+const SEARCH_TOOLS: Record<string, true> = {
+  grep: true,
+  find: true,
+  glob: true,
+  bash: true,
+  read: true,
+  read_many: true,
+};
 
 /**
  * Merge two PATH values, preferring the agent's PATH over the login shell's PATH
@@ -139,24 +146,25 @@ export default function(pi: ExtensionAPI) {
   });
 
   // Append a one-liner so the agent understands graph context in search results.
-  pi.on('before_agent_start', async (event: { systemPrompt?: string }, ctx: ExtensionContext) => {
+  pi.on('before_agent_start', async (event, ctx) => {
     if (!findGitNexusIndex(ctx.cwd)) return;
     if (event.systemPrompt == null) return;
-    return {
-      systemPrompt:
-        event.systemPrompt +
-        '\n\n[GitNexus active] Graph context will appear after search results. ' +
-        'Use gitnexus_query, gitnexus_context, gitnexus_impact, gitnexus_detect_changes, ' +
-        'gitnexus_list_repos, gitnexus_rename, and gitnexus_cypher for deeper analysis. ' +
-        'If the index is stale after code changes, run /gitnexus analyze to rebuild it.',
-    };
+    const note =
+      '[GitNexus active] Graph context will appear after search results. ' +
+      'Use gitnexus_query, gitnexus_context, gitnexus_impact, gitnexus_detect_changes, ' +
+      'gitnexus_list_repos, gitnexus_rename, and gitnexus_cypher for deeper analysis. ' +
+      'If the index is stale after code changes, run /gitnexus analyze to rebuild it.';
+    // pi: systemPrompt is a string; omp: string[]. Append in the host's own shape.
+    const sp: unknown = event.systemPrompt;
+    if (Array.isArray(sp)) return { systemPrompt: [...sp, note] as unknown as string };
+    return { systemPrompt: (sp as string) + '\n\n' + note };
   });
 
   // Core hook: mirrors the Claude Code PreToolUse integration.
   // Intercepts grep/find/bash/read results, appends knowledge graph context.
   pi.on('tool_result', async (event, ctx) => {
     if (!augmentEnabled) return;
-    if (!SEARCH_TOOLS.has(event.toolName)) return;
+    if (!SEARCH_TOOLS[event.toolName]) return;
     // Guard: event.content may be undefined for error results.
     if (!event.content || !Array.isArray(event.content)) return;
     hookFires++;
