@@ -184,7 +184,7 @@ function tokenizeBashCmd(cmd: string): string[] {
  * Extract the primary search pattern from a tool's input object.
  *
  * grep  → input.pattern
- * find  → basename of the glob pattern (e.g. "**\/foo.ts" → "foo")
+ * find/glob  → basename of the glob pattern (e.g. "**\/foo.ts" → "foo")
  * bash  → grep/rg pattern, find -name value, or cat/head/tail filename
  * read  → basename of the file path (code files only)
  *
@@ -196,8 +196,8 @@ export function extractPattern(toolName: string, input: Record<string, unknown>)
   if (toolName === 'grep') {
     const raw = typeof input.pattern === 'string' ? input.pattern : null;
     pattern = raw ? extractLiteralFromRegex(raw) : null;
-  } else if (toolName === 'find') {
-    // pi's find tool field name is unconfirmed — try common variants
+  } else if (toolName === 'find' || toolName === 'glob') {
+    // pi's find / omp's glob tool field name is unconfirmed — try common variants
     const raw =
       typeof input.pattern === 'string' ? input.pattern :
       typeof input.glob    === 'string' ? input.glob    :

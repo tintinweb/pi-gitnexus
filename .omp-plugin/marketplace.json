@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "pi-gitnexus",
+  "owner": {
+    "name": "tintinweb"
+  },
+  "metadata": {
+    "description": "GitNexus knowledge graph integration for pi and omp",
+    "version": "0.6.4"
+  },
+  "plugins": [
+    {
+      "name": "pi-gitnexus",
+      "description": "GitNexus knowledge graph integration — enriches searches with call chains, execution flows, and blast radius",
+      "source": "./",
+      "homepage": "https://github.com/tintinweb/pi-gitnexus",
+      "repository": "https://github.com/tintinweb/pi-gitnexus",
+      "category": "development",
+      "keywords": ["gitnexus", "knowledge-graph", "code-intelligence", "call-graph"]
+    }
+  ]
+}

@@ -38,7 +38,8 @@
     "typebox": ">=1.0"
   },
   "dependencies": {
-    "cross-spawn": "7.0.6"
+    "cross-spawn": "7.0.6",
+    "gitnexus": "^1.6.11"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.14",
@@ -48,6 +49,15 @@
     "vitest": "^4.1.5"
   },
   "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ],
+    "skills": [
+      "./skills"
+    ],
+    "image": "https://github.com/tintinweb/pi-gitnexus/raw/master/media/screenshot.png"
+  },
+  "omp": {
     "extensions": [
       "./src/index.ts"
     ],
