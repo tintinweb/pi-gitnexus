@@ -10,6 +10,11 @@ const getFlagMock = vi.fn(() => '');
 const sendUserMessageMock = vi.fn();
 
 let toolResultHandlers: Array<(event: any, ctx: any) => Promise<any>>;
+type BeforeAgentStartHandler = (
+  event: { systemPrompt?: string | string[] },
+  ctx: { cwd: string },
+) => Promise<{ systemPrompt?: string } | undefined>;
+let beforeAgentStartHandlers: BeforeAgentStartHandler[];
 let onMock: ReturnType<typeof vi.fn>;
 
 vi.mock('../src/mcp-client', () => ({
@@ -44,8 +49,10 @@ vi.mock('../src/gitnexus', async () => {
 
 function createPi() {
   toolResultHandlers = [];
+  beforeAgentStartHandlers = [];
   onMock = vi.fn((event: string, handler: any) => {
     if (event === 'tool_result') toolResultHandlers.push(handler);
+    if (event === 'before_agent_start') beforeAgentStartHandlers.push(handler);
   });
   return {
     registerTool: registerToolMock,
@@ -62,6 +69,15 @@ async function fireToolResult(event: any) {
   for (const handler of toolResultHandlers) {
     const result = await handler(event, ctx);
     if (result) return result;
+  }
+  return undefined;
+}
+
+async function fireBeforeAgentStart(systemPrompt: string | string[]): Promise<string | string[] | undefined> {
+  const ctx = { cwd: '/repo-root' };
+  for (const handler of beforeAgentStartHandlers) {
+    const result = await handler({ systemPrompt }, ctx);
+    if (result) return result.systemPrompt;
   }
   return undefined;
 }
@@ -232,5 +248,30 @@ describe('auto-augment hook', () => {
 
     expect(result).toBeUndefined();
     expect(runAugmentMock).not.toHaveBeenCalled();
+  });
+
+  it('appends note to pi string systemPrompt', async () => {
+    const { default: register } = await import('../src/index');
+    register(createPi() as any);
+
+    const out = await fireBeforeAgentStart('base prompt');
+    expect(typeof out).toBe('string');
+    expect(out as string).toContain('base prompt');
+    expect(out as string).toContain('[GitNexus active]');
+  });
+
+  it('appends note to omp string[] systemPrompt without comma-mangling', async () => {
+    const { default: register } = await import('../src/index');
+    register(createPi() as any);
+
+    const out = await fireBeforeAgentStart(['part one', 'part two']);
+    expect(Array.isArray(out)).toBe(true);
+    const arr = out as string[];
+    expect(arr).toHaveLength(3);
+    expect(arr[0]).toBe('part one');
+    expect(arr[1]).toBe('part two');
+    expect(arr[2]).toContain('[GitNexus active]');
+    // The old string-concat bug would have produced "part one,part two" as a single element.
+    expect(arr.join('')).not.toContain('part one,part two');
   });
 });
