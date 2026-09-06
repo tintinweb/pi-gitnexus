@@ -1,6 +1,6 @@
 # pi-gitnexus
 
-[GitNexus](https://github.com/abhigyanpatwari/GitNexus) knowledge graph integration for [pi](https://github.com/mariozechner/pi). Enriches every search, file read, and symbol lookup with call chains, callers/callees, and execution flows — automatically.
+[GitNexus](https://github.com/abhigyanpatwari/GitNexus) knowledge graph integration for [pi](https://github.com/mariozechner/pi) and [omp](https://github.com/can1357/oh-my-pi). Enriches every search, file read, and symbol lookup with call chains, callers/callees, and execution flows — automatically.
 
 <img height="298" alt="pi-gitnexus screenshot" src="https://github.com/tintinweb/pi-gitnexus/raw/master/media/screenshot.png" />
 
@@ -43,11 +43,36 @@ The extension never installs anything automatically. It assumes `gitnexus` is on
 
 ## Getting started
 
-1. Install the extension: `pi install npm:pi-gitnexus`
+1. Install the extension: `pi install npm:pi-gitnexus` (or `omp install npm:pi-gitnexus`)
 2. Install gitnexus: `npm i -g gitnexus`
 3. Open your project in pi
 4. Run `/gitnexus analyze` to build the knowledge graph
 5. Done — file reads and searches are now enriched automatically
+
+### Installing on omp via the plugin marketplace
+
+omp can install the extension from a Git repo or a local directory instead of the npm registry, using its plugin marketplace. This repo ships a catalog at `.omp-plugin/marketplace.json`, so it works as a marketplace source directly.
+
+**From the remote Git repo:**
+
+```sh
+omp plugin marketplace add tintinweb/pi-gitnexus
+omp plugin install pi-gitnexus@pi-gitnexus
+```
+
+**From a local directory** (e.g. a checkout you are developing against):
+
+```sh
+omp plugin marketplace add /absolute/path/to/pi-gitnexus
+# or, from inside the repo:  omp plugin marketplace add ./.
+omp plugin install pi-gitnexus@pi-gitnexus
+```
+
+Notes:
+- The plugin id is `pi-gitnexus@pi-gitnexus` (`<plugin>@<marketplace>`); the marketplace name comes from the catalog's `name` field.
+- A bare `.` is rejected as a source — use `./.` or an absolute/`~` path for local directories.
+- `omp plugin marketplace add` only registers the catalog. Run `omp plugin install ...` to actually install, then **restart the session** so newly installed tools, hooks, and extension modules load (`/reload-plugins` refreshes skills and slash commands but does not rebuild extension modules).
+- Manage it with `omp plugin list`, `omp plugin upgrade pi-gitnexus@pi-gitnexus`, `omp plugin uninstall pi-gitnexus@pi-gitnexus`, and `omp plugin marketplace remove pi-gitnexus`.
 
 ## What triggers augmentation
 
